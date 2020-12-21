@@ -30,7 +30,6 @@ class AverageMeter(object):
 def reduce_tensor(tensor, world_size):
         rt = tensor.clone()
         dist.all_reduce(rt, op=dist.ReduceOp.SUM)
-        #dist.all_reduce(rt, op=dist.reduce_op.SUM)
         rt /= world_size
         return rt
 

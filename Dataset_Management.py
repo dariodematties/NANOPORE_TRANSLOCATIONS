@@ -28,8 +28,13 @@ class Artificial_DataLoader:
                                        self.number_of_diameters * \
                                        self.windows_per_signal
 
-        # this is the fragment from the total number of windows that corresponds to this rank
-        self.shard_size = self._get_quota(world_size, rank, self.total_number_of_windows)
+        # this is the size of the fragment from the total number of windows that corresponds to this rank
+        self.shard_size = self.total_number_of_windows // world_size
+        # if there is residue in the distribution of windows among ranks
+        # all shard sizes have to be incremented in one
+        # since all shard sizes have to be equal
+        if self.total_number_of_windows % world_size != 0:
+            self.shard_size += 1
 
         self.window = window
         self.length = length
@@ -182,7 +187,7 @@ class Artificial_DataLoader:
 
         
     def get_batch(self, descart_empty_windows=True):
-        assert sum(self.avail_winds == True) > self.batch_size
+        #assert sum(self.avail_winds == True) > self.batch_size
 
         noisy_signals = torch.Tensor(self.batch_size, int(self.window*self.sampling_rate)).to(self.device)
         clean_signals = torch.Tensor(self.batch_size, int(self.window*self.sampling_rate)).to(self.device)

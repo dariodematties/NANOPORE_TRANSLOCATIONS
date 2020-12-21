@@ -40,7 +40,7 @@ def parse():
                         choices=model_names,
                         help='model architecture: ' +
                         ' | '.join(model_names) +
-                        ' (default: ResNet_Toy_Custom)')
+                        ' (default: ResNet18_Custom)')
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -86,8 +86,8 @@ def parse():
 
 
 def main():
-    global best_prec1, args
-    best_prec1 = 0
+    global best_error, args
+    best_error = math.inf
     args = parse()
 
 
@@ -99,6 +99,8 @@ def main():
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
 
+    # Set the device
+    device = torch.device('cpu' if args.cpu else 'cuda:' + str(args.gpu))
 
     args.gpu = 0
     args.world_size = 1
@@ -115,10 +117,10 @@ def main():
 
     args.total_batch_size = args.world_size * args.batch_size
 
-    # Set the device
-    device = torch.device('cpu' if args.cpu else 'cuda:' + str(args.gpu))
-
     # create model
+    if args.test:
+        args.arch = 'ResNet10_Custom'
+
     if args.local_rank==0:
         print("=> creating model '{}'".format(args.arch))
 
@@ -126,6 +128,8 @@ def main():
         model = rn.ResNet18_Counter()
     elif args.arch == 'ResNet18_Custom':
         model = rn.ResNet18_Custom()
+    elif args.arch == 'ResNet10_Custom':
+        model = rn.ResNet10_Custom()
     else:
         print("Unrecognized {} architecture" .format(args.arch))
 
@@ -160,19 +164,23 @@ def main():
         def resume():
             if os.path.isfile(args.resume):
                 print("=> loading checkpoint '{}'" .format(args.resume))
-                checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
+                if args.cpu:
+                    checkpoint = torch.load(args.resume)
+                else:
+                    checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
+
                 start_epoch = checkpoint['epoch']
-                best_prec1 = checkpoint['best_prec1']
+                best_error = checkpoint['best_error']
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 print("=> loaded checkpoint '{}' (epoch {})"
                                 .format(args.resume, checkpoint['epoch']))
-                print("Model best precision saved was {}" .format(best_prec1))
-                return start_epoch, best_prec1, model, optimizer
+                print("Model best precision saved was {}" .format(best_error))
+                return start_epoch, best_error, model, optimizer
             else:
                 print("=> no checkpoint found at '{}'" .format(args.resume))
     
-        args.start_epoch, best_prec1, model, optimizer = resume()
+        args.start_epoch, best_error, model, optimizer = resume()
 
 
     # Data loading code
@@ -183,23 +191,28 @@ def main():
         traindir = args.data[0]
         valdir= args.data[1]
 
-    training_f = h5py.File(traindir + '/Pulse_var_Amp_Cnp_1027_train_toy.h5', 'r')
-    validation_f = h5py.File(valdir + '/Pulse_var_Amp_Cnp_1027_validation_toy.h5', 'r')
+    if args.test:
+        training_f = h5py.File(traindir + '/Pulse_var_Amp_Cnp_1027_train_toy.h5', 'r')
+        validation_f = h5py.File(valdir + '/Pulse_var_Amp_Cnp_1027_validation_toy.h5', 'r')
+    else:
+        training_f = h5py.File(traindir + '/Pulse_var_Amp_Cnp_1027_train.h5', 'r')
+        validation_f = h5py.File(valdir + '/Pulse_var_Amp_Cnp_1027_validation.h5', 'r')
 
 
-    sampling_rate = 10000               # This is the number of samples per second of the signals in the dataset
-    number_of_concentrations = 2        # This is the number of different concentrations in the dataset
-    number_of_durations = 2             # This is the number of different translocation durations per concentration in the dataset
-    number_of_diameters = 4             # This is the number of different translocation durations per concentration in the dataset
-    window = 0.5                        # This is the time window in seconds
-    length = 20                         # This is the time of a complete signal for certain concentration and duration
-
-    #sampling_rate = 10000               # This is the number of samples per second of the signals in the dataset
-    #number_of_concentrations = 20       # This is the number of different concentrations in the dataset
-    #number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
-    #number_of_diameters = 15            # This is the number of different translocation durations per concentration in the dataset
-    #window = 0.5                        # This is the time window in seconds
-    #length = 20                         # This is the time of a complete signal for certain concentration and duration
+    # this is the dataset for training
+    sampling_rate = 10000                   # This is the number of samples per second of the signals in the dataset
+    if args.test:
+        number_of_concentrations = 2        # This is the number of different concentrations in the dataset
+        number_of_durations = 2             # This is the number of different translocation durations per concentration in the dataset
+        number_of_diameters = 4             # This is the number of different translocation durations per concentration in the dataset
+        window = 0.5                        # This is the time window in seconds
+        length = 20                         # This is the time of a complete signal for certain concentration and duration
+    else:
+        number_of_concentrations = 20       # This is the number of different concentrations in the dataset
+        number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
+        number_of_diameters = 15            # This is the number of different translocation durations per concentration in the dataset
+        window = 0.5                        # This is the time window in seconds
+        length = 20                         # This is the time of a complete signal for certain concentration and duration
 
     # Training Artificial Data Loader
     TADL = Artificial_DataLoader(args.world_size, args.local_rank, device, training_f, sampling_rate,
@@ -207,6 +220,29 @@ def main():
                                  window, length, args.batch_size)
 
 
+    # this is the dataset for validating
+    if args.test:
+        number_of_concentrations = 2        # This is the number of different concentrations in the dataset
+        number_of_durations = 2             # This is the number of different translocation durations per concentration in the dataset
+        number_of_diameters = 4             # This is the number of different translocation durations per concentration in the dataset
+        window = 0.5                        # This is the time window in seconds
+        length = 10                         # This is the time of a complete signal for certain concentration and duration
+    else:
+        number_of_concentrations = 20       # This is the number of different concentrations in the dataset
+        number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
+        number_of_diameters = 15            # This is the number of different translocation durations per concentration in the dataset
+        window = 0.5                        # This is the time window in seconds
+        length = 10                         # This is the time of a complete signal for certain concentration and duration
+
+    # Validating Artificial Data Loader
+    VADL = Artificial_DataLoader(args.world_size, args.local_rank, device, validation_f, sampling_rate,
+                                 number_of_concentrations, number_of_durations, number_of_diameters,
+                                 window, length, args.batch_size)
+
+
+    if args.verbose:
+        print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
+        print('From rank {} validation shard size is {}'. format(args.local_rank, VADL.get_number_of_avail_windows()))
 
 
     total_time = Utilities.AverageMeter()
@@ -216,16 +252,39 @@ def main():
                      'optimizer': optimizer,
                      'device': device,
                      'epoch': epoch,
-                     'TADL': TADL}
+                     'TADL': TADL,
+                     'VADL': VADL}
 
         # train for one epoch
         avg_train_time = train(args, arguments)
         total_time.update(avg_train_time)
-        if args.test:
-            break
 
+        # evaluate on validation set
+        [duration_error, amplitude_error] = validate(args, arguments)
 
+        error = (duration_error + amplitude_error) / 2
 
+        #if args.test:
+            #break
+
+        # remember the best model and save checkpoint
+        if args.local_rank == 0:
+            print('From validation we have error is {} while best_error is {}'.format(error, best_error))
+            is_best = error < best_error
+            best_error = min(error, best_error)
+            Model_Util.save_checkpoint({
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                    'best_error': best_error,
+                    'optimizer': optimizer.state_dict(),
+            }, is_best)
+
+            print('##Duration error {0}\n'
+                  '##Amplitude error {1}\n'
+                  '##Perf {2}'.format(
+                  duration_error,
+                  amplitude_error,
+                  args.total_batch_size / total_time.avg))
 
 
 
@@ -255,7 +314,7 @@ def train(args, arguments):
 
     i = 0
     arguments['TADL'].reset_avail_winds(arguments['epoch'])
-    while arguments['TADL'].get_number_of_avail_windows() > args.batch_size:
+    while i * arguments['TADL'].batch_size < arguments['TADL'].shard_size:
         # get the noisy inputs and the labels
         _, inputs, _, _, labels = arguments['TADL'].get_batch()
         mean = torch.mean(inputs, 1, True)
@@ -325,6 +384,93 @@ def train(args, arguments):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def validate(args, arguments):
+    batch_time = Utilities.AverageMeter()
+    average_duration_error = Utilities.AverageMeter()
+    average_amplitude_error = Utilities.AverageMeter()
+
+    # switch to evaluate mode
+    arguments['model'].eval()
+
+    end = time.time()
+
+    i = 0
+    arguments['VADL'].reset_avail_winds(arguments['epoch'])
+    while i * arguments['VADL'].batch_size < arguments['VADL'].shard_size:
+        # bring a new batch
+        times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
+        
+        mean = torch.mean(noisy_signals, 1, True)
+        noisy_signals = noisy_signals-mean
+
+        with torch.no_grad():
+            noisy_signals = noisy_signals.unsqueeze(1)
+            external = torch.reshape(labels[:,0],[arguments['VADL'].batch_size,1])
+            outputs = arguments['model'](noisy_signals, external)
+            noisy_signals = noisy_signals.squeeze(1)
+
+            errors=abs((labels[:,1:] - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:])*100
+            errors=torch.mean(errors,dim=0)
+
+            duration_error = errors[0]
+            amplitude_error = errors[1]
+
+            val_loader_len = int(math.ceil(arguments['VADL'].shard_size / args.batch_size))
+
+
+
+        if args.distributed:
+            reduced_duration_error = Utilities.reduce_tensor(duration_error.data, args.world_size)
+            reduced_amplitude_error = Utilities.reduce_tensor(amplitude_error.data, args.world_size)
+        else:
+            reduced_duration_error = duration_error.data
+            reduced_amplitude_error = amplitude_error.data
+
+
+        average_duration_error.update(Utilities.to_python_float(reduced_duration_error), args.batch_size)
+        average_amplitude_error.update(Utilities.to_python_float(reduced_amplitude_error), args.batch_size)
+
+        # measure elapsed time
+        batch_time.update((time.time() - end)/args.print_freq)
+        end = time.time()
+
+        if args.test:
+            if i > 10:
+                break
+
+        if args.local_rank == 0 and i % args.print_freq == 0:
+            print('Test: [{0}/{1}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Speed {2:.3f} ({3:.3f})\t'
+                  'Duration Error {dur_error.val:.4f} ({dur_error.avg:.4f})\t'
+                  'Amplitude Error {amp_error.val:.4f} ({amp_error.avg:.4f})'.format(
+                  i, val_loader_len,
+                  args.world_size*args.batch_size/batch_time.val,
+                  args.world_size*args.batch_size/batch_time.avg,
+                  batch_time=batch_time,
+                  dur_error=average_duration_error,
+                  amp_error=average_amplitude_error))
+        
+        i += 1
+
+    return [average_duration_error.avg, average_amplitude_error.avg]
 
 
 

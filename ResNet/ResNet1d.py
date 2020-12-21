@@ -214,8 +214,8 @@ def ResNet18_Custom():
 
 
 
-def ResNet_Toy_Custom():
-    return ResNet_Custom(BasicBlock, [1], num_classes=2)
+def ResNet10_Custom():
+    return ResNet_Custom(BasicBlock, [1, 1, 1, 1], num_classes=2)
 
 
 
