@@ -203,19 +203,60 @@ def ResNet152():
     return ResNet(Bottleneck, [3, 8, 36, 3])
 
 
+
+
+
+
+
+# These architectures are for Nanopore Translocation Signal Features Prediction
+# In our case we predict the number of translocation events inside a window in a trace
+def ResNet10_Counter():
+    return ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1)
+
 def ResNet18_Counter():
     return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=1)
 
+def ResNet34_Counter():
+    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=1)
+
+def ResNet50_Counter():
+    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=1)
+
+def ResNet101_Counter():
+    return ResNet(Bottleneck, [3, 4, 23, 3], num_classes=1)
+
+def ResNet152_Counter():
+    return ResNet(Bottleneck, [3, 8, 36, 3], num_classes=1)
+
+
+
+
+
+
+
+# These architectures are for Nanopore Translocation Signal Features Prediction
+# In our case we predict Average Duration and Amplitude inside a window of translocation events in a trace
+def ResNet10_Custom():
+    return ResNet_Custom(BasicBlock, [1, 1, 1, 1], num_classes=2)
 
 def ResNet18_Custom():
     return ResNet_Custom(BasicBlock, [2, 2, 2, 2], num_classes=2)
 
+def ResNet34_Custom():
+    return ResNet_Custom(BasicBlock, [3, 4, 6, 3], num_classes=2)
+
+def ResNet50_Custom():
+    return ResNet_Custom(Bottleneck, [3, 4, 6, 3], num_classes=2)
+
+def ResNet101_Custom():
+    return ResNet_Custom(Bottleneck, [3, 4, 23, 3], num_classes=2)
+
+def ResNet152_Custom():
+    return ResNet_Custom(Bottleneck, [3, 8, 36, 3], num_classes=2)
 
 
 
 
-def ResNet10_Custom():
-    return ResNet_Custom(BasicBlock, [1, 1, 1, 1], num_classes=2)
 
 
 

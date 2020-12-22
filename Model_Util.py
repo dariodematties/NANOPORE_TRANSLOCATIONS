@@ -1,9 +1,10 @@
+import os
 import torch
 import torch.nn as nn
 import shutil
 import math
 import torch.optim as optim
-
+import matplotlib.pyplot as plt
 
 def learning_rate_schedule(args, arguments):
     """Build learning rate schedule."""
@@ -89,10 +90,14 @@ def get_optimizer(model, args):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', best_filename='model_best.pth.tar'):
-    torch.save(state, filename)
+    directory = os.path.join(state['arch'])
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    torch.save(state, os.path.join(directory, filename))
     if is_best:
         print('Saving a new best model with error {}'.format(state['best_error']))
-        shutil.copyfile(filename, best_filename)
+        shutil.copyfile(os.path.join(directory, filename), os.path.join(directory, best_filename))
 
 
 
@@ -131,4 +136,19 @@ def compute_relative_error(predicted, ground_truth):
 
 
 
+
+def plot_stats(losses, duration_errors, amplitude_errors):
+    fig, (loss, duration, amplitude) = plt.subplots(3, 1, sharex=True, figsize=(10,10))
+    fig.suptitle('Training process history', fontweight="bold", size=20)
+
+    loss.plot(losses)
+    loss.set(ylabel='Loss error')
+
+    duration.plot(duration_errors, 'tab:green')
+    duration.set(ylabel='Duration error')
+
+    amplitude.plot(amplitude_errors, 'tab:orange')
+    amplitude.set(ylabel='Amplitude error', xlabel='Epochs')
+
+    plt.show()
 

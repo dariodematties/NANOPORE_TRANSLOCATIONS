@@ -27,7 +27,7 @@ from Dataset_Management import Artificial_DataLoader
 
 def parse():
 
-    model_names = ['ResNet18_Counter', 'ResNet18_Custom', 'ResNet10_Custom']
+    model_names = ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']
 
     optimizers = ['sgd', 'adam']
 
@@ -36,7 +36,7 @@ def parse():
                         help='path(s) to dataset (if one path is provided, it is assumed\n' +
                        'to have subdirectories named "train" and "val"; alternatively,\n' +
                        'train and val paths can be specified directly by providing both paths as arguments)')
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='ResNet18_Custom',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='ResNet18',
                         choices=model_names,
                         help='model architecture: ' +
                         ' | '.join(model_names) +
@@ -80,6 +80,8 @@ def parse():
                              ' (default: adam)')
     parser.add_argument('-t', '--test', action='store_true',
                         help='Launch test mode with preset arguments')
+    parser.add_argument('-pth', '--plot-training-history', action='store_true',
+                        help='Only plots the training history of a trained model: Loss and validation errors')
 
     args = parser.parse_args()
     return args
@@ -119,16 +121,22 @@ def main():
 
     # create model
     if args.test:
-        args.arch = 'ResNet10_Custom'
+        args.arch = 'ResNet10'
 
     if args.local_rank==0:
         print("=> creating model '{}'".format(args.arch))
 
-    if args.arch == 'ResNet18_Counter':
-        model = rn.ResNet18_Counter()
-    elif args.arch == 'ResNet18_Custom':
+    if args.arch == 'ResNet18':
         model = rn.ResNet18_Custom()
-    elif args.arch == 'ResNet10_Custom':
+    if args.arch == 'ResNet34':
+        model = rn.ResNet34_Custom()
+    if args.arch == 'ResNet50':
+        model = rn.ResNet50_Custom()
+    if args.arch == 'ResNet101':
+        model = rn.ResNet101_Custom()
+    if args.arch == 'ResNet152':
+        model = rn.ResNet152_Custom()
+    elif args.arch == 'ResNet10':
         model = rn.ResNet10_Custom()
     else:
         print("Unrecognized {} architecture" .format(args.arch))
@@ -158,6 +166,9 @@ def main():
 
 
 
+    loss_history = []
+    duration_error_history = []
+    amplitude_error_history = []
     # Optionally resume from a checkpoint
     if args.resume:
         # Use a local scope to avoid dangling references
@@ -169,6 +180,9 @@ def main():
                 else:
                     checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
 
+                loss_history = checkpoint['loss_history']
+                duration_error_history = checkpoint['duration_error_history']
+                amplitude_error_history = checkpoint['amplitude_error_history']
                 start_epoch = checkpoint['epoch']
                 best_error = checkpoint['best_error']
                 model.load_state_dict(checkpoint['state_dict'])
@@ -176,11 +190,11 @@ def main():
                 print("=> loaded checkpoint '{}' (epoch {})"
                                 .format(args.resume, checkpoint['epoch']))
                 print("Model best precision saved was {}" .format(best_error))
-                return start_epoch, best_error, model, optimizer
+                return start_epoch, best_error, model, optimizer, loss_history, duration_error_history, amplitude_error_history
             else:
                 print("=> no checkpoint found at '{}'" .format(args.resume))
     
-        args.start_epoch, best_error, model, optimizer = resume()
+        args.start_epoch, best_error, model, optimizer, loss_history, duration_error_history, amplitude_error_history = resume()
 
 
     # Data loading code
@@ -253,6 +267,11 @@ def main():
         validate(args, arguments)
         return
 
+    if args.plot_training_history and args.local_rank == 0:
+        Model_Util.plot_stats(loss_history, duration_error_history, amplitude_error_history)
+        return
+
+
     total_time = Utilities.AverageMeter()
     for epoch in range(args.start_epoch, args.epochs):
         
@@ -261,7 +280,10 @@ def main():
                      'device': device,
                      'epoch': epoch,
                      'TADL': TADL,
-                     'VADL': VADL}
+                     'VADL': VADL,
+                     'loss_history': loss_history,
+                     'duration_error_history': duration_error_history,
+                     'amplitude_error_history': amplitude_error_history}
 
         # train for one epoch
         avg_train_time = train(args, arguments)
@@ -281,10 +303,14 @@ def main():
             is_best = error < best_error
             best_error = min(error, best_error)
             Model_Util.save_checkpoint({
+                    'arch': args.arch,
                     'epoch': epoch + 1,
                     'state_dict': model.state_dict(),
                     'best_error': best_error,
                     'optimizer': optimizer.state_dict(),
+                    'loss_history': loss_history,
+                    'duration_error_history': duration_error_history,
+                    'amplitude_error_history': amplitude_error_history,
             }, is_best)
 
             print('##Duration error {0}\n'
@@ -388,6 +414,8 @@ def train(args, arguments):
 
         i += 1
 
+    arguments['loss_history'].append(losses.avg)
+
     return batch_time.avg
 
 
@@ -477,6 +505,10 @@ def validate(args, arguments):
                   amp_error=average_amplitude_error))
         
         i += 1
+
+    if not args.evaluate:
+        arguments['duration_error_history'].append(average_duration_error.avg)
+        arguments['amplitude_error_history'].append(average_amplitude_error.avg)
 
     return [average_duration_error.avg, average_amplitude_error.avg]
 
