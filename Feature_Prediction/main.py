@@ -101,9 +101,6 @@ def main():
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
 
-    # Set the device
-    device = torch.device('cpu' if args.cpu else 'cuda:' + str(args.gpu))
-
     args.gpu = 0
     args.world_size = 1
 
@@ -119,6 +116,9 @@ def main():
 
     args.total_batch_size = args.world_size * args.batch_size
 
+    # Set the device
+    device = torch.device('cpu' if args.cpu else 'cuda:' + str(args.gpu))
+
     # create model
     if args.test:
         args.arch = 'ResNet10'
@@ -128,13 +128,13 @@ def main():
 
     if args.arch == 'ResNet18':
         model = rn.ResNet18_Custom()
-    if args.arch == 'ResNet34':
+    elif args.arch == 'ResNet34':
         model = rn.ResNet34_Custom()
-    if args.arch == 'ResNet50':
+    elif args.arch == 'ResNet50':
         model = rn.ResNet50_Custom()
-    if args.arch == 'ResNet101':
+    elif args.arch == 'ResNet101':
         model = rn.ResNet101_Custom()
-    if args.arch == 'ResNet152':
+    elif args.arch == 'ResNet152':
         model = rn.ResNet152_Custom()
     elif args.arch == 'ResNet10':
         model = rn.ResNet10_Custom()
