@@ -27,7 +27,7 @@ from Dataset_Management import Artificial_DataLoader
 
 def parse():
 
-    model_names = ['ResNet18_Counter', 'ResNet18_Custom']
+    model_names = ['ResNet18_Counter', 'ResNet18_Custom', 'ResNet10_Custom']
 
     optimizers = ['sgd', 'adam']
 
@@ -244,6 +244,14 @@ def main():
         print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
         print('From rank {} validation shard size is {}'. format(args.local_rank, VADL.get_number_of_avail_windows()))
 
+    if args.evaluate:
+        arguments = {'model': model,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
+
+        validate(args, arguments)
+        return
 
     total_time = Utilities.AverageMeter()
     for epoch in range(args.start_epoch, args.epochs):

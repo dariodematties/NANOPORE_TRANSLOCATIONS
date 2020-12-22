@@ -6,3 +6,6 @@ __pycache__
 
 # Ignore checkpointed and best saved models
 *.tar
+
+# Ignore notebooks
+*.ipynb*
