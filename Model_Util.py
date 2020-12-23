@@ -142,7 +142,7 @@ def plot_stats(losses, duration_errors, amplitude_errors):
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
     loss.plot(losses)
-    loss.set(ylabel='Loss error')
+    loss.set(ylabel='Loss')
 
     duration.plot(duration_errors, 'tab:green')
     duration.set(ylabel='Duration error')

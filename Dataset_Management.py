@@ -41,6 +41,10 @@ class Artificial_DataLoader:
         self.batch_size = batch_size
         self.max_num_of_pulses_in_a_wind = max_num_of_pulses_in_a_wind
         self.avail_winds = self.get_avail_winds(self.shard_size)
+
+        # unravel indices in advance to avoid computational cost during execution
+        auxiliary = [i for i in range(self.total_number_of_windows)]
+        self.unraveled_indices = np.unravel_index(auxiliary, self.shape)
  
 
     @staticmethod
@@ -48,7 +52,7 @@ class Artificial_DataLoader:
         return torch.ones((shard_size), dtype=bool)
 
 
-    # determines the quota of any nomer of things among ranks including residues
+    # determines the quota of any number of things among ranks including residues
     # for instance if total is 100 and world_size is 3, then rank 0 will have a quota of 4
     # rank 1 a quota of 3 and rank 2 a quota of 3 too.
     def _get_quota(self, world_size, rank, total):
@@ -113,7 +117,12 @@ class Artificial_DataLoader:
 
         # map the sample from the rank domain to the global resources
         sampled_window = self._map_from_rank_to_world(sampled_window)
-        sampled_window = np.unravel_index(sampled_window, self.shape)
+        sampled_window = (self.unraveled_indices[0][sampled_window], \
+                          self.unraveled_indices[1][sampled_window], \
+                          self.unraveled_indices[2][sampled_window], \
+                          self.unraveled_indices[3][sampled_window],)
+
+        #sampled_window = np.unravel_index(sampled_window, self.shape)
         return sampled_window
 
 
