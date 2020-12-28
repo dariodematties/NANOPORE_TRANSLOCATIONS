@@ -45,6 +45,9 @@ class Artificial_DataLoader:
         # unravel indices in advance to avoid computational cost during execution
         auxiliary = [i for i in range(self.total_number_of_windows)]
         self.unraveled_indices = np.unravel_index(auxiliary, self.shape)
+        
+        self.samples_indices = []
+        self.number_of_avail_windows = self.get_number_of_avail_windows()
  
 
     @staticmethod
@@ -74,12 +77,20 @@ class Artificial_DataLoader:
         self.shard_size = self._get_quota(self.world_size, self.rank_id, self.total_number_of_windows)
 
         self.avail_winds = torch.ones((self.shard_size), dtype=bool)
+        
+        self.number_of_avail_windows = self.get_number_of_avail_windows()
  
 
-    # make a random window available
-    def _reset_random_wind(self):
-        window = torch.randint(0, self.shard_size, (1,1))[0].item()
-        self.avail_winds[window] = True
+    # make 100 random windows available
+    def _reset_random_winds(self):
+        i = 0
+        while i < 100:
+            window = torch.randint(0, self.shard_size, (1,1))[0].item()
+            if self.avail_winds[window] == False:
+                self.avail_winds[window] = True
+                i += 1
+        
+        self.number_of_avail_windows += 100
 
     # returns the number of available windows in the object
     def get_number_of_avail_windows(self):
@@ -108,6 +119,9 @@ class Artificial_DataLoader:
 
     # get a sample from the available windows and set the sample as unavailable
     def _get_sample(self):
+        if (self.number_of_avail_windows == 0):
+            self._reset_random_winds()
+
         availables = np.where(self.avail_winds)
         idx = torch.randint(0, availables[0].size, (1,1))[0].item()
         sampled_window = availables[0][idx]
@@ -123,6 +137,7 @@ class Artificial_DataLoader:
                           self.unraveled_indices[3][sampled_window],)
 
         #sampled_window = np.unravel_index(sampled_window, self.shape)
+        self.number_of_avail_windows -= 1
         return sampled_window
 
 
@@ -170,10 +185,11 @@ class Artificial_DataLoader:
 
 
     def _get_signal_window(self, with_labels=False):
-        if (self.get_number_of_avail_windows() == 0):
-            self._reset_random_wind()
+        if len(self.samples_indices) == 0: # bring 100 samples
+            for i in range(100):
+                self.samples_indices.append(self._get_sample())
 
-        sample = self._get_sample()
+        sample = self.samples_indices.pop(0)
         Cnp = sample[0]
         Duration = sample[1]
         Dnp = sample[2]
@@ -187,7 +203,7 @@ class Artificial_DataLoader:
         time_window = torch.Tensor(dset[0,begin:end]).to(self.device)
         clean_signal = torch.Tensor(dset[1,begin:end]).to(self.device)
         noisy_signal = torch.Tensor(dset[2,begin:end]).to(self.device)
-        
+
         if with_labels:
             starts, widths, amplitudes, categories, number_of_pulses, average_width, average_amplitude = self._get_labels(time_window, Cnp, Duration, Dnp)
             return time_window, clean_signal, noisy_signal, starts, widths, amplitudes, categories, number_of_pulses, average_width, average_amplitude
@@ -224,5 +240,5 @@ class Artificial_DataLoader:
             average_labels[i][0] = number_of_pulses
             average_labels[i][1] = average_width
             average_labels[i][2] = average_amplitude
-    
+
         return times, noisy_signals, clean_signals, pulse_labels, average_labels

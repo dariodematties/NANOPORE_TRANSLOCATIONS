@@ -164,6 +164,10 @@ def main():
         print('Optimizer used for this run is {}'.format(args.optimizer))
 
 
+    # Set learning rate scheduler
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lrsp,
+                                                              args.lrm)
+
 
 
     loss_history = []
@@ -187,14 +191,15 @@ def main():
                 best_error = checkpoint['best_error']
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
+                lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
                 print("=> loaded checkpoint '{}' (epoch {})"
                                 .format(args.resume, checkpoint['epoch']))
                 print("Model best precision saved was {}" .format(best_error))
-                return start_epoch, best_error, model, optimizer, loss_history, duration_error_history, amplitude_error_history
+                return start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, duration_error_history, amplitude_error_history
             else:
                 print("=> no checkpoint found at '{}'" .format(args.resume))
     
-        args.start_epoch, best_error, model, optimizer, loss_history, duration_error_history, amplitude_error_history = resume()
+        args.start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, duration_error_history, amplitude_error_history = resume()
 
 
     # Data loading code
@@ -233,7 +238,6 @@ def main():
                                  number_of_concentrations, number_of_durations, number_of_diameters,
                                  window, length, args.batch_size)
 
-
     # this is the dataset for validating
     if args.test:
         number_of_concentrations = 2        # This is the number of different concentrations in the dataset
@@ -252,7 +256,6 @@ def main():
     VADL = Artificial_DataLoader(args.world_size, args.local_rank, device, validation_f, sampling_rate,
                                  number_of_concentrations, number_of_durations, number_of_diameters,
                                  window, length, args.batch_size)
-
 
     if args.verbose:
         print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
@@ -297,6 +300,7 @@ def main():
         #if args.test:
             #break
 
+        lr_scheduler.step()
         # remember the best model and save checkpoint
         if args.local_rank == 0:
             print('From validation we have error is {} while best_error is {}'.format(error, best_error))
@@ -311,6 +315,7 @@ def main():
                     'loss_history': loss_history,
                     'duration_error_history': duration_error_history,
                     'amplitude_error_history': amplitude_error_history,
+                    'lr_scheduler': lr_scheduler.state_dict(),
             }, is_best)
 
             print('##Duration error {0}\n'
@@ -346,18 +351,18 @@ def train(args, arguments):
     arguments['model'].train()
     end = time.time()
 
+    train_loader_len = int(math.ceil(arguments['TADL'].shard_size / args.batch_size))
     i = 0
     arguments['TADL'].reset_avail_winds(arguments['epoch'])
     while i * arguments['TADL'].batch_size < arguments['TADL'].shard_size:
         # get the noisy inputs and the labels
         _, inputs, _, _, labels = arguments['TADL'].get_batch()
+
         mean = torch.mean(inputs, 1, True)
         inputs = inputs-mean
             
         labels[:,1] = labels[:,1] * 10**3
         labels[:,2] = labels[:,2] * 10**10
-
-        train_loader_len = int(math.ceil(arguments['TADL'].shard_size / args.batch_size))
 
         # zero the parameter gradients
         arguments['optimizer'].zero_grad()
@@ -371,7 +376,7 @@ def train(args, arguments):
         loss = F.smooth_l1_loss(outputs, labels[:,1:])
 
         # Adjust learning rate
-        Model_Util.learning_rate_schedule(args, arguments)
+        #Model_Util.learning_rate_schedule(args, arguments)
 
         # compute gradient and do SGD step
         loss.backward()
@@ -447,6 +452,7 @@ def validate(args, arguments):
 
     end = time.time()
 
+    val_loader_len = int(math.ceil(arguments['VADL'].shard_size / args.batch_size))
     i = 0
     arguments['VADL'].reset_avail_winds(arguments['epoch'])
     while i * arguments['VADL'].batch_size < arguments['VADL'].shard_size:
@@ -462,13 +468,11 @@ def validate(args, arguments):
             outputs = arguments['model'](noisy_signals, external)
             noisy_signals = noisy_signals.squeeze(1)
 
-            errors=abs((labels[:,1:] - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:])*100
+            errors=abs((labels[:,1:].to('cpu') - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:].to('cpu'))*100
             errors=torch.mean(errors,dim=0)
 
             duration_error = errors[0]
             amplitude_error = errors[1]
-
-            val_loader_len = int(math.ceil(arguments['VADL'].shard_size / args.batch_size))
 
 
 
