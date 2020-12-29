@@ -267,11 +267,16 @@ def main():
                      'epoch': 0,
                      'VADL': VADL}
 
-        validate(args, arguments)
+        [duration_error, amplitude_error] = validate(args, arguments)
+        print('##Duration error {0}\n'
+              '##Amplitude error {1}'.format(
+              duration_error,
+              amplitude_error))
+
         return
 
     if args.plot_training_history and args.local_rank == 0:
-        Model_Util.plot_stats(loss_history, duration_error_history, amplitude_error_history)
+        Model_Util.plot_features_stats(loss_history, duration_error_history, amplitude_error_history)
         return
 
 

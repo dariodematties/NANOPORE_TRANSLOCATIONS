@@ -265,11 +265,14 @@ def main():
                      'epoch': 0,
                      'VADL': VADL}
 
-        validate(args, arguments)
+        counter_error = validate(args, arguments)
+        print('##Counter error {0}'.format(
+              counter_error))
+
         return
 
     if args.plot_training_history and args.local_rank == 0:
-        Model_Util.plot_stats(loss_history, counter_error_history)
+        Model_Util.plot_counter_stats(loss_history, counter_error_history)
         return
 
 

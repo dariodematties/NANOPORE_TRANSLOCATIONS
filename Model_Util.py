@@ -137,7 +137,7 @@ def compute_relative_error(predicted, ground_truth):
 
 
 
-def plot_stats(losses, duration_errors, amplitude_errors):
+def plot_features_stats(losses, duration_errors, amplitude_errors):
     fig, (loss, duration, amplitude) = plt.subplots(3, 1, sharex=True, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
@@ -154,7 +154,7 @@ def plot_stats(losses, duration_errors, amplitude_errors):
 
 
 
-def plot_stats(losses, counter_errors):
+def plot_counter_stats(losses, counter_errors):
     fig, (loss, counter) = plt.subplots(2, 1, sharex=True, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
