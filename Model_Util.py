@@ -152,3 +152,17 @@ def plot_stats(losses, duration_errors, amplitude_errors):
 
     plt.show()
 
+
+
+def plot_stats(losses, counter_errors):
+    fig, (loss, counter) = plt.subplots(2, 1, sharex=True, figsize=(10,10))
+    fig.suptitle('Training process history', fontweight="bold", size=20)
+
+    loss.plot(losses)
+    loss.set(ylabel='Loss')
+
+    counter.plot(counter_errors, 'tab:green')
+    counter.set(ylabel='Counter error')
+
+    plt.show()
+
