@@ -404,9 +404,9 @@ def train(args, arguments):
         loss.backward()
         arguments['optimizer'].step()
 
-        if args.test:
-            if i > 10:
-                break
+        #if args.test:
+            #if i > 10:
+                #break
 
         if i%args.print_freq == 0:
             # Every print_freq iterations, check the loss and speed.
@@ -513,9 +513,9 @@ def validate(args, arguments):
         batch_time.update((time.time() - end)/args.print_freq)
         end = time.time()
 
-        if args.test:
-            if i > 10:
-                break
+        #if args.test:
+            #if i > 10:
+                #break
 
         if args.local_rank == 0 and i % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
@@ -591,9 +591,9 @@ def compute_error_stats(args, arguments):
                     duration_errors[Cnp, Duration, Dnp, window] = errors[0]
                     amplitude_errors[Cnp, Duration, Dnp, window] = errors[1]
 
-        if args.test:
-            if i > 10:
-                break
+        #if args.test:
+            #if i > 10:
+                #break
 
     if args.distributed:
         reduced_duration_error = Utilities.reduce_tensor_sum(duration_errors.data, 0)
@@ -618,7 +618,7 @@ def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
 
     std_duration_error = reduced_duration_error.numpy()
     std_duration_error[std_duration_error==0] = np.nan
-    std_duration_error = np.nanmean(std_duration_error, 3)
+    std_duration_error = np.nanstd(std_duration_error, 3)
 
     mean_amplitude_error = reduced_amplitude_error.numpy()
     mean_amplitude_error[mean_amplitude_error==0] = np.nan
@@ -626,7 +626,7 @@ def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
 
     std_amplitude_error = reduced_amplitude_error.numpy()
     std_amplitude_error[std_amplitude_error==0] = np.nan
-    std_amplitude_error = np.nanmean(std_amplitude_error, 3)
+    std_amplitude_error = np.nanstd(std_amplitude_error, 3)
 
     (Cnp, Duration, Dnp) = VADL.shape[:3]
 
