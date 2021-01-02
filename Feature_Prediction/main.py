@@ -590,6 +590,9 @@ def compute_error_stats(args, arguments):
 
                     duration_errors[Cnp, Duration, Dnp, window] = errors[0]
                     amplitude_errors[Cnp, Duration, Dnp, window] = errors[1]
+            else:
+                duration_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
+                amplitude_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
 
         #if args.test:
             #if i > 10:
@@ -613,19 +616,15 @@ def compute_error_stats(args, arguments):
 
 def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
     mean_duration_error = reduced_duration_error.numpy()
-    mean_duration_error[mean_duration_error==0] = np.nan
     mean_duration_error = np.nanmean(mean_duration_error, 3)
 
     std_duration_error = reduced_duration_error.numpy()
-    std_duration_error[std_duration_error==0] = np.nan
     std_duration_error = np.nanstd(std_duration_error, 3)
 
     mean_amplitude_error = reduced_amplitude_error.numpy()
-    mean_amplitude_error[mean_amplitude_error==0] = np.nan
     mean_amplitude_error = np.nanmean(mean_amplitude_error, 3)
 
     std_amplitude_error = reduced_amplitude_error.numpy()
-    std_amplitude_error[std_amplitude_error==0] = np.nan
     std_amplitude_error = np.nanstd(std_amplitude_error, 3)
 
     (Cnp, Duration, Dnp) = VADL.shape[:3]
@@ -692,6 +691,47 @@ def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
         std2[i].set_ylabel('Dnp')
 
     plt.show()
+
+
+    ave1 = []
+    std1 = []
+    ave2 = []
+    std2 = []
+    duration_error = reduced_duration_error.numpy()
+    amplitude_error = reduced_amplitude_error.numpy()
+    for i in range(Duration):
+        ave1.append(np.nanmean(duration_error[:,i,:,:].ravel()))
+        std1.append(np.nanstd(duration_error[:,i,:,:].ravel()))
+        ave2.append(np.nanmean(amplitude_error[:,i,:,:].ravel()))
+        std2.append(np.nanstd(amplitude_error[:,i,:,:].ravel()))
+
+
+    fig, axs = plt.subplots(2, 2, figsize=(10,10))
+    fig.tight_layout(pad=4.0)
+    durations = [i for i in range(Duration)]
+
+    axs[0,0].plot(durations,ave1)
+    axs[0,0].set_title("Average duration error")
+    axs[0,0].set_xlabel("Duration")
+    axs[0,0].set_ylabel("Average Error")
+
+    axs[0,1].plot(durations,std1)
+    axs[0,1].set_title("STD duration error")
+    axs[0,1].set_xlabel("Duration")
+    axs[0,1].set_ylabel("STD Error")
+
+    axs[1,0].plot(durations,ave2)
+    axs[1,0].set_title("Average amplitude error")
+    axs[1,0].set_xlabel("Duration")
+    axs[1,0].set_ylabel("Average Error")
+
+    axs[1,1].plot(durations,std2)
+    axs[1,1].set_title("STD amplitude error")
+    axs[1,1].set_xlabel("Duration")
+    axs[1,1].set_ylabel("STD Error")
+
+    plt.show()
+
 
 
 
