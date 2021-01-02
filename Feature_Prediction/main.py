@@ -711,21 +711,21 @@ def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
     durations = [i for i in range(Duration)]
 
     axs[0,0].plot(durations,ave1)
-    axs[0,0].set_title("Average duration error")
+    axs[0,0].set_title("Average duration error: {}" .format(np.nanmean(duration_error.ravel())))
     axs[0,0].set_xlabel("Duration")
     axs[0,0].set_ylabel("Average Error")
 
-    axs[0,1].plot(durations,std1)
+    axs[0,1].plot(durations,std1, color='r')
     axs[0,1].set_title("STD duration error")
     axs[0,1].set_xlabel("Duration")
     axs[0,1].set_ylabel("STD Error")
 
     axs[1,0].plot(durations,ave2)
-    axs[1,0].set_title("Average amplitude error")
+    axs[1,0].set_title("Average amplitude error: {}" .format(np.nanmean(amplitude_error.ravel())))
     axs[1,0].set_xlabel("Duration")
     axs[1,0].set_ylabel("Average Error")
 
-    axs[1,1].plot(durations,std2)
+    axs[1,1].plot(durations,std2, color='r')
     axs[1,1].set_title("STD amplitude error")
     axs[1,1].set_xlabel("Duration")
     axs[1,1].set_ylabel("STD Error")
