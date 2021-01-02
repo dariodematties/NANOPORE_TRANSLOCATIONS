@@ -17,6 +17,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 sys.path.append('../ResNet')
 import ResNet1d as rn
@@ -67,6 +68,8 @@ def parse():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
+    parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
+                        help='Compute statistics about errors of a trained model on validation set')
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument('--cpu', action='store_true',
                         help='Runs CPU based version of the workflow.')
@@ -180,7 +183,7 @@ def main():
             if os.path.isfile(args.resume):
                 print("=> loading checkpoint '{}'" .format(args.resume))
                 if args.cpu:
-                    checkpoint = torch.load(args.resume)
+                    checkpoint = torch.load(args.resume, map_location='cpu')
                 else:
                     checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
 
@@ -260,6 +263,20 @@ def main():
     if args.verbose:
         print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
         print('From rank {} validation shard size is {}'. format(args.local_rank, VADL.get_number_of_avail_windows()))
+
+
+    if args.statistics:
+        arguments = {'model': model,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
+
+        [duration_errors, amplitude_errors] = compute_error_stats(args, arguments)
+        if args.local_rank == 0:
+            plot_stats(VADL, duration_errors, amplitude_errors)
+
+        return
+
 
     if args.evaluate:
         arguments = {'model': model,
@@ -520,6 +537,163 @@ def validate(args, arguments):
         arguments['amplitude_error_history'].append(average_amplitude_error.avg)
 
     return [average_duration_error.avg, average_amplitude_error.avg]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def compute_error_stats(args, arguments):
+    # switch to evaluate mode
+    arguments['model'].eval()
+    duration_errors = torch.zeros(arguments['VADL'].shape)
+    amplitude_errors = torch.zeros(arguments['VADL'].shape)
+    arguments['VADL'].reset_avail_winds(arguments['epoch'])
+    for i in range(arguments['VADL'].total_number_of_windows):
+        if i % args.world_size == args.local_rank:
+            (Cnp, Duration, Dnp, window) = np.unravel_index(i, arguments['VADL'].shape)
+
+            # bring a new window
+            times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_signal_window(Cnp, Duration, Dnp, window)
+
+            if labels[0] > 0:
+                times = times.unsqueeze(0)
+                noisy_signals = noisy_signals.unsqueeze(0)
+                clean_signals = clean_signals.unsqueeze(0)
+                labels = labels.unsqueeze(0)
+
+                mean = torch.mean(noisy_signals, 1, True)
+                noisy_signals = noisy_signals-mean
+
+                with torch.no_grad():
+                    noisy_signals = noisy_signals.unsqueeze(1)
+                    external = torch.reshape(labels[:,0],[1,1])
+                    outputs = arguments['model'](noisy_signals, external)
+                    noisy_signals = noisy_signals.squeeze(1)
+
+                    errors=abs((labels[:,1:].to('cpu') - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(1,1)) / labels[:,1:].to('cpu'))*100
+                    errors=torch.mean(errors,dim=0)
+
+                    duration_errors[Cnp, Duration, Dnp, window] = errors[0]
+                    amplitude_errors[Cnp, Duration, Dnp, window] = errors[1]
+
+        if args.test:
+            if i > 10:
+                break
+
+    if args.distributed:
+        reduced_duration_error = Utilities.reduce_tensor_sum(duration_errors.data, 0)
+        reduced_amplitude_error = Utilities.reduce_tensor_sum(amplitude_errors.data, 0)
+    else:
+        reduced_duration_error = duration_errors.data
+        reduced_amplitude_error = amplitude_errors.data
+
+    return [reduced_duration_error, reduced_amplitude_error]
+
+
+
+
+
+
+
+
+def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
+    mean_duration_error = reduced_duration_error.numpy()
+    mean_duration_error[mean_duration_error==0] = np.nan
+    mean_duration_error = np.nanmean(mean_duration_error, 3)
+
+    std_duration_error = reduced_duration_error.numpy()
+    std_duration_error[std_duration_error==0] = np.nan
+    std_duration_error = np.nanmean(std_duration_error, 3)
+
+    mean_amplitude_error = reduced_amplitude_error.numpy()
+    mean_amplitude_error[mean_amplitude_error==0] = np.nan
+    mean_amplitude_error = np.nanmean(mean_amplitude_error, 3)
+
+    std_amplitude_error = reduced_amplitude_error.numpy()
+    std_amplitude_error[std_amplitude_error==0] = np.nan
+    std_amplitude_error = np.nanmean(std_amplitude_error, 3)
+
+    (Cnp, Duration, Dnp) = VADL.shape[:3]
+
+    ave1 = []
+    std1 = []
+    ave2 = []
+    std2 = []
+    # setup the figure and axes for duration errors
+    fig = plt.figure(figsize=(10, 2*Duration*3.2))
+    for i in range(Duration):
+        ave1.append(fig.add_subplot(Duration,2,2*i+1, projection='3d'))
+        std1.append(fig.add_subplot(Duration,2,2*i+2, projection='3d'))
+
+    # prepare the data
+    _x = np.arange(Cnp)
+    _y = np.arange(Dnp)
+    _xx, _yy = np.meshgrid(_x, _y)
+    x, y = _xx.ravel(), _yy.ravel()
+    width = depth = 1
+    for i in range(Duration):
+        top = mean_duration_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        ave1[i].bar3d(x, y, bottom, width, depth, top, shade=True)
+        ave1[i].set_title('Mean Duration Error for Duration {}' .format(i+1))
+        ave1[i].set_xlabel('Cnp')
+        ave1[i].set_ylabel('Dnp')
+
+        top = std_duration_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        std1[i].bar3d(x, y, bottom, width, depth, top, shade=True, color='r')
+        std1[i].set_title('STD Duration Error for Duration {}' .format(i+1))
+        std1[i].set_xlabel('Cnp')
+        std1[i].set_ylabel('Dnp')
+
+    plt.show()
+
+
+    # setup the figure and axes for amplitude errors
+    fig = plt.figure(figsize=(10, 2*Duration*3.2))
+    for i in range(Duration):
+        ave2.append(fig.add_subplot(Duration,2,2*i+1, projection='3d'))
+        std2.append(fig.add_subplot(Duration,2,2*i+2, projection='3d'))
+
+    # prepare the data
+    _x = np.arange(Cnp)
+    _y = np.arange(Dnp)
+    _xx, _yy = np.meshgrid(_x, _y)
+    x, y = _xx.ravel(), _yy.ravel()
+    width = depth = 1
+    for i in range(Duration):
+        top = mean_amplitude_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        ave2[i].bar3d(x+1, y+1, bottom, width, depth, top, shade=True)
+        ave2[i].set_title('Mean Amplitude Error for Duration {}' .format(i+1))
+        ave2[i].set_xlabel('Cnp')
+        ave2[i].set_ylabel('Dnp')
+
+        top = std_amplitude_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        std2[i].bar3d(x+1, y+1, bottom, width, depth, top, shade=True, color='r')
+        std2[i].set_title('STD Amplitude Error for Duration {}' .format(i+1))
+        std2[i].set_xlabel('Cnp')
+        std2[i].set_ylabel('Dnp')
+
+    plt.show()
+
+
 
 
 

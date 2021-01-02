@@ -34,6 +34,12 @@ def reduce_tensor(tensor, world_size):
         return rt
 
 
+def reduce_tensor_sum(tensor, dest):
+        rt = tensor.clone()
+        dist.reduce(rt, dst=dest, op=dist.ReduceOp.SUM)
+        return rt
+
+
 # item() is a recent addition, so this helps with backward compatibility.
 def to_python_float(t):
         if hasattr(t, 'item'):

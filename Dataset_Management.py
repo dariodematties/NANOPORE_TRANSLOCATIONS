@@ -242,3 +242,35 @@ class Artificial_DataLoader:
             average_labels[i][2] = average_amplitude
 
         return times, noisy_signals, clean_signals, pulse_labels, average_labels
+
+
+
+
+
+
+    def get_signal_window(self, Cnp, Duration, Dnp, window_number):
+        dset = self.File['Cnp_' + str(Cnp+1) + '/Duration_' + str(Duration+1) + '/Dnp_' + str(Dnp+1) + '/data']
+        assert dset.shape[1] % self.length == 0
+        samples_per_second = int(dset.shape[1] / self.length)
+        samples_per_window = int(samples_per_second * self.window)
+        begin = window_number * samples_per_window
+        end = begin + samples_per_window
+        time_window = torch.Tensor(dset[0,begin:end]).to(self.device)
+        clean_signal = torch.Tensor(dset[1,begin:end]).to(self.device)
+        noisy_signal = torch.Tensor(dset[2,begin:end]).to(self.device)
+
+        starts, widths, amplitudes, categories, number_of_pulses, average_width, average_amplitude = self._get_labels(time_window, Cnp, Duration, Dnp)
+        pulse_labels = torch.Tensor(4, self.max_num_of_pulses_in_a_wind).to(self.device)
+        average_labels = torch.Tensor(3).to(self.device)
+
+        pulse_labels[0] = starts
+        pulse_labels[1] = widths
+        pulse_labels[2] = amplitudes
+        pulse_labels[3] = categories
+
+        average_labels[0] = number_of_pulses
+        average_labels[1] = average_width
+        average_labels[2] = average_amplitude
+
+        return time_window, clean_signal, noisy_signal, pulse_labels, average_labels
+
