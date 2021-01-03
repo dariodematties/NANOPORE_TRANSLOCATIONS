@@ -272,5 +272,5 @@ class Artificial_DataLoader:
         average_labels[1] = average_width
         average_labels[2] = average_amplitude
 
-        return time_window, clean_signal, noisy_signal, pulse_labels, average_labels
+        return time_window, noisy_signal, clean_signal, pulse_labels, average_labels
 
