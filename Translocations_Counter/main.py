@@ -179,7 +179,7 @@ def main():
             if os.path.isfile(args.resume):
                 print("=> loading checkpoint '{}'" .format(args.resume))
                 if args.cpu:
-                    checkpoint = torch.load(args.resume)
+                    checkpoint = torch.load(args.resume, map_location='cpu')
                 else:
                     checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
 
@@ -353,7 +353,7 @@ def train(args, arguments):
     arguments['TADL'].reset_avail_winds(arguments['epoch'])
     while i * arguments['TADL'].batch_size < arguments['TADL'].shard_size:
         # get the noisy inputs and the labels
-        _, inputs, _, _, labels = arguments['TADL'].get_batch()
+        _, inputs, _, _, labels = arguments['TADL'].get_batch(descart_empty_windows=False)
 
         mean = torch.mean(inputs, 1, True)
         inputs = inputs-mean
@@ -366,7 +366,7 @@ def train(args, arguments):
         outputs = arguments['model'](inputs)
 
         # Compute Huber loss
-        loss = F.smooth_l1_loss(outputs, labels[:,0].unsqueeze(1))
+        loss = F.smooth_l1_loss(outputs[:,0], labels[:,0])
 
         # Adjust learning rate
         #Model_Util.learning_rate_schedule(args, arguments)
@@ -375,9 +375,9 @@ def train(args, arguments):
         loss.backward()
         arguments['optimizer'].step()
 
-        if args.test:
-            if i > 10:
-                break
+        #if args.test:
+            #if i > 10:
+                #break
 
         if i%args.print_freq == 0:
             # Every print_freq iterations, check the loss and speed.
@@ -449,7 +449,7 @@ def validate(args, arguments):
     arguments['VADL'].reset_avail_winds(arguments['epoch'])
     while i * arguments['VADL'].batch_size < arguments['VADL'].shard_size:
         # bring a new batch
-        times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
+        times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch(descart_empty_windows=False)
         
         mean = torch.mean(noisy_signals, 1, True)
         noisy_signals = noisy_signals-mean
@@ -459,10 +459,10 @@ def validate(args, arguments):
             outputs = arguments['model'](noisy_signals)
             noisy_signals = noisy_signals.squeeze(1)
 
-            errors=abs((labels[:,0].to('cpu') - outputs.data.to('cpu')) / labels[:,0].to('cpu'))*100
+            errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu'))
             errors=torch.mean(errors,dim=0)
 
-            counter_error = errors[0]
+            counter_error = errors
 
 
 
@@ -478,9 +478,9 @@ def validate(args, arguments):
         batch_time.update((time.time() - end)/args.print_freq)
         end = time.time()
 
-        if args.test:
-            if i > 10:
-                break
+        #if args.test:
+            #if i > 10:
+                #break
 
         if args.local_rank == 0 and i % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
