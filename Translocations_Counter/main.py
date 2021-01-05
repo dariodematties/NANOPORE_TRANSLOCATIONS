@@ -703,7 +703,7 @@ def run_model(args, arguments):
     arguments['VADL'].reset_avail_winds(arguments['epoch'])
 
     # bring a new batch
-    times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
+    times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch(descart_empty_windows=False)
     
     mean = torch.mean(noisy_signals, 1, True)
     noisy_signals = noisy_signals-mean
