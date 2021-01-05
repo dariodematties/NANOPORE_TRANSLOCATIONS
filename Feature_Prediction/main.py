@@ -806,6 +806,8 @@ def run_model(args, arguments):
     else:
         print('This will not show more than 20 plots')
 
+    plt.show()
+
     errors=abs((labels[:,1:] - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:])*100
     av_errors=torch.mean(errors,dim=0)
     print("Average translocation time error: {0:.2f}\nAverage translocation amplitude error:{1:.2f}".format(av_errors[0], av_errors[1]))
