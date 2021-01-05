@@ -17,6 +17,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 sys.path.append('../ResNet')
 import ResNet1d as rn
@@ -67,6 +68,8 @@ def parse():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
+    parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
+                        help='Compute statistics about errors of a trained model on validation set')
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument('--cpu', action='store_true',
                         help='Runs CPU based version of the workflow.')
@@ -258,6 +261,20 @@ def main():
     if args.verbose:
         print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
         print('From rank {} validation shard size is {}'. format(args.local_rank, VADL.get_number_of_avail_windows()))
+
+
+    if args.statistics:
+        arguments = {'model': model,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
+
+        counter_errors = compute_error_stats(args, arguments)
+        if args.local_rank == 0:
+            plot_stats(VADL, counter_errors)
+
+        return
+
 
     if args.evaluate:
         arguments = {'model': model,
@@ -499,6 +516,165 @@ def validate(args, arguments):
         arguments['counter_error_history'].append(average_counter_error.avg)
 
     return average_counter_error.avg
+
+
+
+
+
+
+
+
+
+
+
+
+def compute_error_stats(args, arguments):
+    # switch to evaluate mode
+    arguments['model'].eval()
+    counter_errors = torch.zeros(arguments['VADL'].shape)
+    arguments['VADL'].reset_avail_winds(arguments['epoch'])
+    for i in range(arguments['VADL'].total_number_of_windows):
+        if i % args.world_size == args.local_rank:
+            (Cnp, Duration, Dnp, window) = np.unravel_index(i, arguments['VADL'].shape)
+
+            # bring a new window
+            times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_signal_window(Cnp, Duration, Dnp, window)
+
+            times = times.unsqueeze(0)
+            noisy_signals = noisy_signals.unsqueeze(0)
+            clean_signals = clean_signals.unsqueeze(0)
+            labels = labels.unsqueeze(0)
+
+            mean = torch.mean(noisy_signals, 1, True)
+            noisy_signals = noisy_signals-mean
+
+            with torch.no_grad():
+                noisy_signals = noisy_signals.unsqueeze(1)
+                outputs = arguments['model'](noisy_signals)
+                noisy_signals = noisy_signals.squeeze(1)
+
+                errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu'))
+                errors=torch.mean(errors,dim=0)
+
+                counter_errors[Cnp, Duration, Dnp, window] = errors
+
+        #if args.test:
+            #if i > 10:
+                #break
+
+    if args.distributed:
+        reduced_counter_error = Utilities.reduce_tensor_sum(counter_errors.data, 0)
+    else:
+        reduced_counter_error = counter_errors.data
+
+    return reduced_counter_error
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def plot_stats(VADL, reduced_counter_error):
+    mean_counter_error = reduced_counter_error.numpy()
+    mean_counter_error = np.nanmean(mean_counter_error, 3)
+
+    std_counter_error = reduced_counter_error.numpy()
+    std_counter_error = np.nanstd(std_counter_error, 3)
+
+    (Cnp, Duration, Dnp) = VADL.shape[:3]
+
+    ave1 = []
+    std1 = []
+    # setup the figure and axes for counter errors
+    fig = plt.figure(figsize=(10, 2*Duration*3.2))
+    for i in range(Duration):
+        ave1.append(fig.add_subplot(Duration,2,2*i+1, projection='3d'))
+        std1.append(fig.add_subplot(Duration,2,2*i+2, projection='3d'))
+
+    # prepare the data
+    _x = np.arange(Cnp)
+    _y = np.arange(Dnp)
+    _xx, _yy = np.meshgrid(_x, _y)
+    x, y = _xx.ravel(), _yy.ravel()
+    width = depth = 1
+    for i in range(Duration):
+        top = mean_counter_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        ave1[i].bar3d(x, y, bottom, width, depth, top, shade=True)
+        ave1[i].set_title('Mean Counter Error for Duration {}' .format(i+1))
+        ave1[i].set_xlabel('Cnp')
+        ave1[i].set_ylabel('Dnp')
+
+        top = std_counter_error[:,i,:].ravel()
+        bottom = np.zeros_like(top)
+        std1[i].bar3d(x, y, bottom, width, depth, top, shade=True, color='r')
+        std1[i].set_title('STD Counter Error for Duration {}' .format(i+1))
+        std1[i].set_xlabel('Cnp')
+        std1[i].set_ylabel('Dnp')
+
+    plt.show()
+
+
+
+    ave1 = []
+    std1 = []
+    counter_error = reduced_counter_error.numpy()
+    for i in range(Duration):
+        ave1.append(np.nanmean(counter_error[:,i,:,:].ravel()))
+        std1.append(np.nanstd(counter_error[:,i,:,:].ravel()))
+
+
+    fig, axs = plt.subplots(1, 2, figsize=(10,5))
+    fig.tight_layout(pad=4.0)
+    durations = [i for i in range(Duration)]
+
+    axs[0].plot(durations,ave1)
+    axs[0].set_title("Average counter error: {}" .format(np.nanmean(counter_error.ravel())))
+    axs[0].set_xlabel("Duration")
+    axs[0].set_ylabel("Average Error")
+
+    axs[1].plot(durations,std1, color='r')
+    axs[1].set_title("STD counter error")
+    axs[1].set_xlabel("Duration")
+    axs[1].set_ylabel("STD Error")
+
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
