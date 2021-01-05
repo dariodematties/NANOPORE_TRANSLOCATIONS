@@ -70,6 +70,8 @@ def parse():
                         help='evaluate model on validation set')
     parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
                         help='Compute statistics about errors of a trained model on validation set')
+    parser.add_argument('-r', '--run', dest='run', action='store_true',
+                        help='Run a trained model and plots a batch of predictions in noisy signals')
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument('--cpu', action='store_true',
                         help='Runs CPU based version of the workflow.')
@@ -264,6 +266,17 @@ def main():
         print('From rank {} training shard size is {}'. format(args.local_rank, TADL.get_number_of_avail_windows()))
         print('From rank {} validation shard size is {}'. format(args.local_rank, VADL.get_number_of_avail_windows()))
 
+
+    if args.run:
+        arguments = {'model': model,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
+
+        if args.local_rank == 0:
+            run_model(args, arguments)
+
+        return
 
     if args.statistics:
         arguments = {'model': model,
@@ -734,6 +747,68 @@ def plot_stats(VADL, reduced_duration_error, reduced_amplitude_error):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def run_model(args, arguments):
+    # switch to evaluate mode
+    arguments['model'].eval()
+
+    arguments['VADL'].reset_avail_winds(arguments['epoch'])
+
+    # bring a new batch
+    times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
+    
+    mean = torch.mean(noisy_signals, 1, True)
+    noisy_signals = noisy_signals-mean
+
+    with torch.no_grad():
+        noisy_signals = noisy_signals.unsqueeze(1)
+        external = torch.reshape(labels[:,0],[arguments['VADL'].batch_size,1])
+        outputs = arguments['model'](noisy_signals, external)
+        noisy_signals = noisy_signals.squeeze(1)
+
+
+    times = times.cpu()
+    noisy_signals = noisy_signals.cpu()
+    clean_signals = clean_signals.cpu()
+    labels = labels.cpu()
+
+
+    if arguments['VADL'].batch_size < 21:
+        fig, axs = plt.subplots(arguments['VADL'].batch_size, 1, figsize=(10,arguments['VADL'].batch_size*3))
+        fig.tight_layout(pad=4.0)
+        for i, batch_element in enumerate(range(arguments['VADL'].batch_size)):
+            mean = torch.mean(noisy_signals[batch_element])
+            axs[i].plot(times[batch_element],noisy_signals[batch_element]-mean)
+            mean = torch.mean(clean_signals[batch_element])
+            axs[i].plot(times[batch_element],clean_signals[batch_element]-mean)
+            axs[i].set_title("Average translocation time: {}, presiction is {}\nAverage aplitude: {}, prediction is {}"
+            .format(labels[batch_element,1], outputs[batch_element,0]*10**(-3),\
+                        labels[batch_element,2], outputs[batch_element,1]*10**(-10)))
+    else:
+        print('This will not show more than 20 plots')
+
+    errors=abs((labels[:,1:] - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:])*100
+    av_errors=torch.mean(errors,dim=0)
+    print("Average translocation time error: {0:.2f}\nAverage translocation amplitude error:{1:.2f}".format(av_errors[0], av_errors[1]))
 
 
 
