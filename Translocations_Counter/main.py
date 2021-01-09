@@ -464,7 +464,8 @@ def train(args, arguments):
 
 
 
-
+# From this page: https://stats.stackexchange.com/questions/86708/how-to-calculate-relative-error-when-the-true-value-is-zero
+# "A common one is the "Relative Percent Difference," or RPD, used in laboratory quality control procedures."
 def validate(args, arguments):
     batch_time = Utilities.AverageMeter()
     average_counter_error = Utilities.AverageMeter()
@@ -489,7 +490,8 @@ def validate(args, arguments):
             outputs = arguments['model'](noisy_signals)
             noisy_signals = noisy_signals.squeeze(1)
 
-            errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu'))
+            denominator = (abs(labels[:,0].to('cpu')) + abs(outputs[:,0].data.to('cpu'))) / 2
+            errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu')) / denominator
             errors=torch.mean(errors,dim=0)
 
             counter_error = errors
@@ -566,7 +568,8 @@ def compute_error_stats(args, arguments):
                 outputs = arguments['model'](noisy_signals)
                 noisy_signals = noisy_signals.squeeze(1)
 
-                errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu'))
+                denominator = (abs(labels[:,0].to('cpu')) + abs(outputs[:,0].data.to('cpu'))) / 2
+                errors=abs(labels[:,0].to('cpu') - outputs[:,0].data.to('cpu')) / denominator
                 errors=torch.mean(errors,dim=0)
 
                 counter_errors[Cnp, Duration, Dnp, window] = errors
