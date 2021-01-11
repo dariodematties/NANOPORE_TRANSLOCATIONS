@@ -175,6 +175,7 @@ def main():
 
 
 
+    total_time = Utilities.AverageMeter()
     loss_history = []
     counter_error_history = []
     # Optionally resume from a checkpoint
@@ -195,14 +196,15 @@ def main():
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+                total_time = checkpoint['total_time']
                 print("=> loaded checkpoint '{}' (epoch {})"
                                 .format(args.resume, checkpoint['epoch']))
                 print("Model best precision saved was {}" .format(best_error))
-                return start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, counter_error_history
+                return start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, counter_error_history, total_time
             else:
                 print("=> no checkpoint found at '{}'" .format(args.resume))
     
-        args.start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, counter_error_history = resume()
+        args.start_epoch, best_error, model, optimizer, lr_scheduler, loss_history, counter_error_history, total_time = resume()
 
 
     # Data loading code
@@ -303,10 +305,17 @@ def main():
 
     if args.plot_training_history and args.local_rank == 0:
         Model_Util.plot_counter_stats(loss_history, counter_error_history)
+        hours = int(total_time.sum / 3600)
+        minutes = int((total_time.sum % 3600) / 60)
+        seconds = int((total_time.sum % 3600) % 60)
+        print('The total training time was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
+        hours = int(total_time.avg / 3600)
+        minutes = int((total_time.avg % 3600) / 60)
+        seconds = int((total_time.avg % 3600) % 60)
+        print('while the average time during one epoch of training was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
         return
 
 
-    total_time = Utilities.AverageMeter()
     for epoch in range(args.start_epoch, args.epochs):
         
         arguments = {'model': model,
@@ -319,8 +328,8 @@ def main():
                      'counter_error_history': counter_error_history}
 
         # train for one epoch
-        avg_train_time = train(args, arguments)
-        total_time.update(avg_train_time)
+        epoch_time, avg_batch_time = train(args, arguments)
+        total_time.update(epoch_time)
 
         # evaluate on validation set
         counter_error = validate(args, arguments)
@@ -345,12 +354,13 @@ def main():
                     'loss_history': loss_history,
                     'Counter_error_history': counter_error_history,
                     'lr_scheduler': lr_scheduler.state_dict(),
+                    'total_time': total_time
             }, is_best)
 
             print('##Counter error {0}\n'
                   '##Perf {1}'.format(
                   counter_error,
-                  args.total_batch_size / total_time.avg))
+                  args.total_batch_size / avg_batch_time))
 
 
 
@@ -409,7 +419,7 @@ def train(args, arguments):
             #if i > 10:
                 #break
 
-        if i%args.print_freq == 0:
+        if i%args.print_freq == 0 and i != 0:
             # Every print_freq iterations, check the loss and speed.
             # For best performance, it doesn't make sense to print these metrics every
             # iteration, since they incur an allreduce and some host<->device syncs.
@@ -426,7 +436,7 @@ def train(args, arguments):
             if not args.cpu:
                 torch.cuda.synchronize()
 
-            batch_time.update((time.time() - end)/args.print_freq)
+            batch_time.update((time.time() - end)/args.print_freq, args.print_freq)
             end = time.time()
 
             if args.local_rank == 0:
@@ -444,7 +454,7 @@ def train(args, arguments):
 
     arguments['loss_history'].append(losses.avg)
 
-    return batch_time.avg
+    return batch_time.sum, batch_time.avg
 
 
 
@@ -507,14 +517,14 @@ def validate(args, arguments):
         average_counter_error.update(Utilities.to_python_float(reduced_counter_error), args.batch_size)
 
         # measure elapsed time
-        batch_time.update((time.time() - end)/args.print_freq)
+        batch_time.update(time.time() - end)
         end = time.time()
 
         #if args.test:
             #if i > 10:
                 #break
 
-        if args.local_rank == 0 and i % args.print_freq == 0:
+        if args.local_rank == 0 and i % args.print_freq == 0 and i != 0:
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Speed {2:.3f} ({3:.3f})\t'
