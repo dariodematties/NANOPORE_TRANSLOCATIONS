@@ -34,7 +34,13 @@ def reduce_tensor(tensor, world_size):
         return rt
 
 
-def reduce_tensor_sum(tensor, dest):
+def reduce_tensor_sum(tensor):
+        rt = tensor.clone()
+        dist.all_reduce(rt, op=dist.ReduceOp.SUM)
+        return rt
+
+
+def reduce_tensor_sum_dest(tensor, dest):
         rt = tensor.clone()
         dist.reduce(rt, dst=dest, op=dist.ReduceOp.SUM)
         return rt

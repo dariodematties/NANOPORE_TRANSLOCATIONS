@@ -622,8 +622,8 @@ def compute_error_stats(args, arguments):
                 #break
 
     if args.distributed:
-        reduced_duration_error = Utilities.reduce_tensor_sum(duration_errors.data, 0)
-        reduced_amplitude_error = Utilities.reduce_tensor_sum(amplitude_errors.data, 0)
+        reduced_duration_error = Utilities.reduce_tensor_sum_dest(duration_errors.data, 0)
+        reduced_amplitude_error = Utilities.reduce_tensor_sum_dest(amplitude_errors.data, 0)
     else:
         reduced_duration_error = duration_errors.data
         reduced_amplitude_error = amplitude_errors.data

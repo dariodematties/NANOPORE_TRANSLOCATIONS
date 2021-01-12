@@ -477,6 +477,8 @@ def train(args, arguments):
 # From this page: https://stats.stackexchange.com/questions/86708/how-to-calculate-relative-error-when-the-true-value-is-zero
 # "A common one is the "Relative Percent Difference," or RPD, used in laboratory quality control procedures."
 def validate(args, arguments):
+    miscounted_pulses = torch.tensor(0)
+    number_of_pulses = torch.tensor(0)
     batch_time = Utilities.AverageMeter()
     average_counter_error = Utilities.AverageMeter()
 
@@ -506,7 +508,9 @@ def validate(args, arguments):
 
             counter_error = errors
 
-
+        if args.evaluate:
+            miscounted_pulses += abs(round(labels[:,0].to('cpu').sum(dim=0).item()) - round(outputs[:,0].data.to('cpu').sum(dim=0).item()))
+            number_of_pulses += round(labels[:,0].to('cpu').sum(dim=0).item())
 
         if args.distributed:
             reduced_counter_error = Utilities.reduce_tensor(counter_error.data, args.world_size)
@@ -539,6 +543,17 @@ def validate(args, arguments):
 
     if not args.evaluate:
         arguments['counter_error_history'].append(average_counter_error.avg)
+
+    if args.evaluate:
+        if args.distributed:
+            reduced_miscounted_pulses = Utilities.reduce_tensor_sum(miscounted_pulses.data)
+            reduced_number_of_pulses = Utilities.reduce_tensor_sum(number_of_pulses.data)
+        else:
+            reduced_miscounted_pulses = miscounted_pulses.data
+            reduced_number_of_pulses = number_of_pulses.data
+
+        print('##We have {} miscounted pulses from a total of {} pulses' .format(reduced_miscounted_pulses, reduced_number_of_pulses))
+
 
     return average_counter_error.avg
 
@@ -589,7 +604,7 @@ def compute_error_stats(args, arguments):
                 #break
 
     if args.distributed:
-        reduced_counter_error = Utilities.reduce_tensor_sum(counter_errors.data, 0)
+        reduced_counter_error = Utilities.reduce_tensor_sum_dest(counter_errors.data, 0)
     else:
         reduced_counter_error = counter_errors.data
 
