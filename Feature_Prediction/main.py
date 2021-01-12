@@ -218,11 +218,11 @@ def main():
         valdir= args.data[1]
 
     if args.test:
-        training_f = h5py.File(traindir + '/Pulse_var_Amp_Cnp_1027_train_toy.h5', 'r')
-        validation_f = h5py.File(valdir + '/Pulse_var_Amp_Cnp_1027_validation_toy.h5', 'r')
+        training_f = h5py.File(traindir + '/train_toy.h5', 'r')
+        validation_f = h5py.File(valdir + '/validation_toy.h5', 'r')
     else:
-        training_f = h5py.File(traindir + '/Pulse_var_Amp_Cnp_1027_train.h5', 'r')
-        validation_f = h5py.File(valdir + '/Pulse_var_Amp_Cnp_1027_validation.h5', 'r')
+        training_f = h5py.File(traindir + '/train.h5', 'r')
+        validation_f = h5py.File(valdir + '/validation.h5', 'r')
 
 
     # this is the dataset for training
