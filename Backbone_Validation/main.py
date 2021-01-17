@@ -380,7 +380,7 @@ def compute_error_stats(args, arguments):
                 with torch.no_grad():
                     noisy_signals = noisy_signals.unsqueeze(1)
                     num_of_pulses = arguments['model_1'](noisy_signals)
-                    external = torch.reshape(num_of_pulses ,[1,1])
+                    external = torch.reshape(num_of_pulses ,[1,1]).round()
                     outputs = arguments['model_2'](noisy_signals, external)
                     noisy_signals = noisy_signals.squeeze(1)
 
@@ -407,10 +407,10 @@ def compute_error_stats(args, arguments):
                 with torch.no_grad():
                     noisy_signals = noisy_signals.unsqueeze(1)
                     num_of_pulses = arguments['model_1'](noisy_signals)
-                    external = torch.reshape(num_of_pulses ,[1,1])
+                    external = torch.reshape(num_of_pulses ,[1,1]).round()
                     noisy_signals = noisy_signals.squeeze(1)
 
-                    if external.data > 0.0:
+                    if external.data.to('cpu') > 0.0:
                         count_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
                         duration_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
                         amplitude_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
@@ -652,7 +652,7 @@ def run_model(args, arguments):
         noisy_signals = noisy_signals.unsqueeze(1)
         num_of_pulses = arguments['model_1'](noisy_signals)
         zero_pulse_indices = torch.where(num_of_pulses.round()==0.0)[0].data
-        external = torch.reshape(num_of_pulses ,[arguments['VADL'].batch_size,1])
+        external = torch.reshape(num_of_pulses ,[arguments['VADL'].batch_size,1]).round()
         outputs = arguments['model_2'](noisy_signals, external)
         noisy_signals = noisy_signals.squeeze(1)
 
