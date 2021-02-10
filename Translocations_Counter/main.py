@@ -32,7 +32,7 @@ def parse():
 
     optimizers = ['sgd', 'adam']
 
-    parser = argparse.ArgumentParser(description='Nanopore Translocation Feature Prediction Training')
+    parser = argparse.ArgumentParser(description='Nanopore Translocation Counter Training')
     parser.add_argument('data', metavar='DIR', nargs='*',
                         help='path(s) to dataset (if one path is provided, it is assumed\n' +
                        'to have subdirectories named "train" and "val"; alternatively,\n' +
