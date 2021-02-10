@@ -78,6 +78,10 @@ def get_optimizer(model, args):
         optimizer = optim.Adam(model.parameters(),
                                args.lr)
 
+    elif args.optimizer == 'adamw':
+        optimizer = optim.AdamW(model.parameters(),
+                                args.lr)
+
     else:
         raise ValueError('Unknown optimizer {}'.format(args.optimizer))
 
