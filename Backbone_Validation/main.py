@@ -352,7 +352,7 @@ def main():
 
 
 
-def compute_error_stats(args, arguments):
+def compute_error_stats(args, arguments, include_improper_on_error_computation=True):
     # switch to evaluate mode
     arguments['model_1'].eval()
     arguments['model_2'].eval()
@@ -411,9 +411,15 @@ def compute_error_stats(args, arguments):
                     noisy_signals = noisy_signals.squeeze(1)
 
                     if external.data.to('cpu') > 0.0:
-                        count_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
-                        duration_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
-                        amplitude_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
+                        if include_improper_on_error_computation:
+                            count_errors[Cnp, Duration, Dnp, window] = 100.0
+                            duration_errors[Cnp, Duration, Dnp, window] = 100.0
+                            amplitude_errors[Cnp, Duration, Dnp, window] = 100.0
+                        else:
+                            count_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
+                            duration_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
+                            amplitude_errors[Cnp, Duration, Dnp, window] = torch.tensor(float('nan'))
+
                         improper_measures += 1
                     else:
                         count_errors[Cnp, Duration, Dnp, window] = 0.0
@@ -635,7 +641,7 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
 
 
-def run_model(args, arguments):
+def run_model(args, arguments, include_improper_on_error_computation=True):
     # switch to evaluate mode
     arguments['model_1'].eval()
     arguments['model_2'].eval()
@@ -692,6 +698,12 @@ def run_model(args, arguments):
             if (i == zero_pulse_indices).any():
                 measures += 1.0
             else:
+                if include_improper_on_error_computation:
+                    measures += 1.0
+                    count_error += 100.0
+                    duration_error += 100.0
+                    amplitude_error += 100.0
+
                 improper_measures += 1.0
         else:
             measures += 1.0
