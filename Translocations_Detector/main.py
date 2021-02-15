@@ -32,6 +32,9 @@ from transformer import build_transformer
 import detr as DT
 import matcher as mtchr
 
+sys.path.append('./mAP')
+from mean_avg_precision import mean_average_precision 
+
 def parse():
 
     model_names = ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']
@@ -144,8 +147,8 @@ def parse():
 
 
 def main():
-    global best_error, args
-    best_error = math.inf
+    global best_precision, args
+    best_precision = 0
     args = parse()
 
 
@@ -451,6 +454,7 @@ def main():
 
     total_time = Utilities.AverageMeter()
     loss_history = []
+    precision_history = []
     # Optionally resume from a checkpoint
     if args.resume:
         # Use a local scope to avoid dangling references
@@ -463,7 +467,9 @@ def main():
                     checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.gpu))
 
                 loss_history = checkpoint['loss_history']
+                precision_history = checkpoint['precision_history']
                 start_epoch = checkpoint['epoch']
+                best_precision = checkpoint['best_precision']
                 detr.load_state_dict(checkpoint['state_dict'])
                 criterion.load_state_dict(checkpoint['criterion'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
@@ -471,11 +477,11 @@ def main():
                 total_time = checkpoint['total_time']
                 print("=> loaded checkpoint '{}' (epoch {})"
                                 .format(args.resume, checkpoint['epoch']))
-                return start_epoch, detr, criterion, optimizer, lr_scheduler, loss_history, total_time 
+                return start_epoch, detr, criterion, optimizer, lr_scheduler, loss_history, precision_history, total_time, best_precision 
             else:
                 print("=> no checkpoint found at '{}'" .format(args.resume))
     
-        args.start_epoch, detr, criterion, optimizer, lr_scheduler, loss_history, total_time = resume()
+        args.start_epoch, detr, criterion, optimizer, lr_scheduler, loss_history, precision_history, total_time, best_precision = resume()
 
 
 
@@ -641,16 +647,15 @@ def main():
                      'epoch': epoch,
                      'TADL': TADL,
                      'VADL': VADL,
-                     'loss_history': loss_history}
+                     'loss_history': loss_history,
+                     'precision_history': precision_history}
 
         # train for one epoch
         epoch_time, avg_batch_time = train(args, arguments)
         total_time.update(epoch_time)
 
-        ## evaluate on validation set
-        #[duration_error, amplitude_error] = validate(args, arguments)
-
-        #error = (duration_error + amplitude_error) / 2
+        # evaluate on validation set
+        precision = validate(args, arguments)
 
         #if args.test:
             #break
@@ -658,26 +663,26 @@ def main():
         lr_scheduler.step()
         # remember the best detr and save checkpoint
         if args.local_rank == 0:
-            print('From validation we have error is {} while best_error is {}'.format(error, best_error))
-            is_best = False #error < best_error
-            #best_error = min(error, best_error)
+            print('From validation we have precision is {} while best_precision is {}'.format(precision, best_precision))
+            is_best = precision > best_precision
+            best_precision = max(precision, best_precision)
             Model_Util.save_checkpoint({
-                    'arch': args.arch,
+                    'arch': 'DETR_' + args.feature_predictor_arch,
                     'epoch': epoch + 1,
+                    'best_precision': best_precision,
                     'state_dict': detr.state_dict(),
                     'criterion': criterion.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'loss_history': loss_history,
+                    'precision_history': precision_history,
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'total_time': total_time
             }, is_best)
 
-            #print('##Duration error {0}\n'
-                  #'##Amplitude error {1}\n'
-                  #'##Perf {2}'.format(
-                  #duration_error,
-                  #amplitude_error,
-                  #args.total_batch_size / avg_batch_time))
+            print('##Detector precision {0}\n'
+                  '##Perf {1}'.format(
+                  precision,
+                  args.total_batch_size / avg_batch_time))
 
 
 
@@ -795,78 +800,75 @@ def train(args, arguments):
 
 
 def validate(args, arguments):
-    batch_time = Utilities.AverageMeter()
-    average_duration_error = Utilities.AverageMeter()
-    average_amplitude_error = Utilities.AverageMeter()
+    average_precision = Utilities.AverageMeter()
 
     # switch to evaluate mode
-    arguments['model'].eval()
+    arguments['detr'].eval()
 
     end = time.time()
 
     val_loader_len = int(math.ceil(arguments['VADL'].shard_size / args.batch_size))
     i = 0
     arguments['VADL'].reset_avail_winds(arguments['epoch'])
+    pred_segments = []
+    true_segments = []
     while i * arguments['VADL'].batch_size < arguments['VADL'].shard_size:
-        # bring a new batch
-        times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
-        
-        mean = torch.mean(noisy_signals, 1, True)
-        noisy_signals = noisy_signals-mean
+        # get the noisy inputs and the labels
+        _, inputs, _, targets, labels = arguments['TADL'].get_batch()
 
+        mean = torch.mean(inputs, 1, True)
+        inputs = inputs-mean
+            
         with torch.no_grad():
-            noisy_signals = noisy_signals.unsqueeze(1)
-            external = torch.reshape(labels[:,0],[arguments['VADL'].batch_size,1])
-            outputs = arguments['model'](noisy_signals, external)
-            noisy_signals = noisy_signals.squeeze(1)
+            # forward
+            inputs = inputs.unsqueeze(1)
+            outputs = arguments['detr'](inputs)
 
-            errors=abs((labels[:,1:].to('cpu') - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:].to('cpu'))*100
-            errors=torch.mean(errors,dim=0)
+        for j in range(arguments['VADL'].batch_size):
+            train_idx = int(j + i * arguments['VADL'].batch_size)
 
-            duration_error = errors[0]
-            amplitude_error = errors[1]
+            probabilities = F.softmax(outputs['pred_logits'][j], dim=1)
+            aux_pred_segments = outputs['pred_segments'][j]
 
-
-
-        if args.distributed:
-            reduced_duration_error = Utilities.reduce_tensor(duration_error.data, args.world_size)
-            reduced_amplitude_error = Utilities.reduce_tensor(amplitude_error.data, args.world_size)
-        else:
-            reduced_duration_error = duration_error.data
-            reduced_amplitude_error = amplitude_error.data
+            for probability, pred_segment in zip(probabilities, aux_pred_segments):
+                if probability[-1] < 0.9:
+                    segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(), pred_segment[0].item(), pred_segment[1].item()]
+                    pred_segments.append(segment)
 
 
-        average_duration_error.update(Utilities.to_python_float(reduced_duration_error), args.batch_size)
-        average_amplitude_error.update(Utilities.to_python_float(reduced_amplitude_error), args.batch_size)
+            num_pulses = labels[j, 0]
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+            starts = targets[j, 0]
+            widths = targets[j, 1]
+            categories = targets[j, 3]
+            
+            for k in range(int(num_pulses.item())):
+                segment = [train_idx, categories[k].item(), 1.0, starts[k].item(), widths[k].item()]
+                true_segments.append(segment)
 
-        #if args.test:
-            #if i > 10:
-                #break
 
-        if args.local_rank == 0 and i % args.print_freq == 0 and i != 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Speed {2:.3f} ({3:.3f})\t'
-                  'Duration Error {dur_error.val:.4f} ({dur_error.avg:.4f})\t'
-                  'Amplitude Error {amp_error.val:.4f} ({amp_error.avg:.4f})'.format(
-                  i, val_loader_len,
-                  args.world_size*args.batch_size/batch_time.val,
-                  args.world_size*args.batch_size/batch_time.avg,
-                  batch_time=batch_time,
-                  dur_error=average_duration_error,
-                  amp_error=average_amplitude_error))
-        
         i += 1
 
-    if not args.evaluate:
-        arguments['duration_error_history'].append(average_duration_error.avg)
-        arguments['amplitude_error_history'].append(average_amplitude_error.avg)
 
-    return [average_duration_error.avg, average_amplitude_error.avg]
+    for threshold in np.arange(0.5, 0.95, 0.05):
+        detection_precision=mean_average_precision(pred_segments=pred_segments,
+                                                   true_segments=true_segments,
+                                                   iou_threshold=threshold,
+                                                   seg_format="mix",
+                                                   num_classes=1)
+
+        if args.distributed:
+            reduced_detection_precision = Utilities.reduce_tensor(detection_precision.data, args.world_size)
+        else:
+            reduced_detection_precision = detection_precision.data
+
+
+        average_precision.update(Utilities.to_python_float(reduced_detection_precision))
+
+    if not args.evaluate:
+        arguments['precision_history'].append(average_precision.avg)
+
+    return average_precision.avg
 
 
 
