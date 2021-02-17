@@ -99,8 +99,12 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', best_filename
 
     torch.save(state, os.path.join(directory, filename))
     if is_best:
-        print('Saving a new best model with error {}'.format(state['best_error']))
-        shutil.copyfile(os.path.join(directory, filename), os.path.join(directory, best_filename))
+        if 'best_error' in state.keys():
+            print('Saving a new best model with error {}'.format(state['best_error']))
+            shutil.copyfile(os.path.join(directory, filename), os.path.join(directory, best_filename))
+        else:
+            print('Saving a new best model with precision {}'.format(state['best_precision']))
+            shutil.copyfile(os.path.join(directory, filename), os.path.join(directory, best_filename))
 
 
 
