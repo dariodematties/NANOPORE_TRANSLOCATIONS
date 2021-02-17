@@ -235,12 +235,12 @@ def main():
 
 
     # Data loading code
-    valdir = os.path.join(args.data, 'val')
+    valdir = os.path.join(args.data, 'test')
 
     if args.test:
-        validation_f = h5py.File(valdir + '/validation_toy.h5', 'r')
+        validation_f = h5py.File(valdir + '/test_toy.h5', 'r')
     else:
-        validation_f = h5py.File(valdir + '/validation.h5', 'r')
+        validation_f = h5py.File(valdir + '/test.h5', 'r')
 
 
     # this is the dataset for validating
