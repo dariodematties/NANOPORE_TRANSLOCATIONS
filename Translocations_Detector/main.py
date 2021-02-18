@@ -369,8 +369,8 @@ def main():
         args.transformer_dim_feedforward = 256
         args.transformer_num_enc_layers = 2
         args.transformer_num_dec_layers = 2
-        args.transformer_pre_norm = True
 
+    args.transformer_pre_norm = True
     transformer = build_transformer(hidden_dim=args.transformer_hidden_dim,
                                     dropout=args.transformer_dropout,
                                     nheads=args.transformer_num_heads,
