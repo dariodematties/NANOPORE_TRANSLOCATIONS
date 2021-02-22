@@ -33,7 +33,7 @@ import detr as DT
 import matcher as mtchr
 
 sys.path.append('./mAP')
-from mean_avg_precision import mean_average_precision 
+from Scalable_mean_avg_precision import mean_average_precision 
 
 def parse():
 
