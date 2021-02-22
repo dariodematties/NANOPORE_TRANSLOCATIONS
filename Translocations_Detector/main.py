@@ -830,7 +830,7 @@ def validate(args, arguments):
             probabilities = F.softmax(outputs['pred_logits'][j], dim=1)
             aux_pred_segments = outputs['pred_segments'][j]
 
-            for probability, pred_segment in zip(probabilities, aux_pred_segments):
+            for probability, pred_segment in zip(probabilities.to('cpu'), aux_pred_segments.to('cpu')):
                 if probability[-1] < 0.9:
                     segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(), pred_segment[0].item(), pred_segment[1].item()]
                     pred_segments.append(segment)
