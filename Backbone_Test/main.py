@@ -424,39 +424,24 @@ def plot_stats(TRDL, reduced_count_translocations, reduced_duration_translocatio
         std2.append(np.std(amplitude_translocation[i,:]))
 
 
-    fig, axs = plt.subplots(3, 2, figsize=(10,15))
+    fig, axs = plt.subplots(3, 1, figsize=(10,15))
     fig.tight_layout(pad=4.0)
     traces = [i for i in range(Trace)]
 
-    axs[0,0].plot(traces,ave0)
-    axs[0,0].set_title("Average translocation count: {}" .format(np.mean(count_translocation)))
-    axs[0,0].set_xlabel("Trace")
-    axs[0,0].set_ylabel("Average")
+    axs[0].errorbar(traces,ave0,std0, linestyle='None', marker='o', linewidth=1.0)
+    axs[0].set_title("Average translocation count: {}" .format(np.mean(count_translocation)))
+    axs[0].set_xlabel("Trace")
+    axs[0].set_ylabel("Average")
 
-    axs[0,1].plot(traces,std0, color='r')
-    axs[0,1].set_title("STD translocation count")
-    axs[0,1].set_xlabel("Trace")
-    axs[0,1].set_ylabel("STD")
+    axs[1].errorbar(traces,ave1,std1, linestyle='None', marker='o', linewidth=1.0)
+    axs[1].set_title("Average translocation duration: {}" .format(np.mean(duration_translocation)))
+    axs[1].set_xlabel("Trace")
+    axs[1].set_ylabel("Average")
 
-    axs[1,0].plot(traces,ave1)
-    axs[1,0].set_title("Average translocation duration: {}" .format(np.mean(duration_translocation)))
-    axs[1,0].set_xlabel("Trace")
-    axs[1,0].set_ylabel("Average")
-
-    axs[1,1].plot(traces,std1, color='r')
-    axs[1,1].set_title("STD translocation duration")
-    axs[1,1].set_xlabel("Trace")
-    axs[1,1].set_ylabel("STD")
-
-    axs[2,0].plot(traces,ave2)
-    axs[2,0].set_title("Average translocation amplitude: {}" .format(np.mean(amplitude_translocation)))
-    axs[2,0].set_xlabel("Trace")
-    axs[2,0].set_ylabel("Average")
-
-    axs[2,1].plot(traces,std2, color='r')
-    axs[2,1].set_title("STD translocation amplitude")
-    axs[2,1].set_xlabel("Trace")
-    axs[2,1].set_ylabel("STD")
+    axs[2].errorbar(traces,ave2,std2, linestyle='None', marker='o', linewidth=1.0)
+    axs[2].set_title("Average translocation amplitude: {}" .format(np.mean(amplitude_translocation)))
+    axs[2].set_xlabel("Trace")
+    axs[2].set_ylabel("Average")
 
     plt.show()
 
