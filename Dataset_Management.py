@@ -274,3 +274,44 @@ class Artificial_DataLoader:
 
         return time_window, noisy_signal, clean_signal, pulse_labels, average_labels
 
+
+
+
+
+
+
+
+
+class Unlabeled_Real_DataLoader:
+    def __init__(self, device, File, num_of_traces, window, length):
+        assert window < length
+
+        self.device = device
+
+        self.File = File
+
+        self.num_of_traces = num_of_traces
+        self.windows_per_trace = int(length / window)
+
+        # this is the shape of the structure of windows in the dataset
+        self.shape = (self.num_of_traces, int(length / window))
+
+        # this is the total number of windows in the dataset
+        self.total_number_of_windows = self.num_of_traces * self.windows_per_trace
+
+        self.window = window
+        self.length = length
+
+
+    def get_signal_window(self, trace_number, window_number):
+        dset = self.File['Volt_' + str(trace_number+1) + '/data']
+        #assert dset.shape[1] % self.length == 0
+        samples_per_second = int(dset.shape[1] / self.length)
+        samples_per_window = int(samples_per_second * self.window)
+        begin = window_number * samples_per_window
+        end = begin + samples_per_window
+        time_window = torch.Tensor(dset[0,begin:end]).to(self.device)
+        signal = torch.Tensor(dset[1,begin:end]).to(self.device)
+
+        return time_window, signal
+
