@@ -18,6 +18,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 sys.path.append('../ResNet')
 import ResNet1d as rn
@@ -472,29 +473,31 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
     ave0 = []
     # setup the figure and axes for count errors
-    fig = plt.figure(figsize=(2*Duration*3.2, 20))
+    fig = plt.figure(figsize=(2*Duration*3.2, 7))
     for i in range(Duration):
         ave0.append(fig.add_subplot(1,Duration,i+1, projection='3d'))
 
     # prepare the data
-    _x = np.arange(Cnp)
-    _y = np.arange(Dnp)
+    _x = np.arange(Cnp)+1
+    _y = np.arange(Dnp)+1
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
         top = mean_count_error[:,i,:]
         top = top.transpose()
-        ave0[i].plot_surface(x, y, top, alpha=0.7)
+        ave0[i].plot_surface(x, y, top, alpha=0.9)
 
         std_surface = std_count_error[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
-        ave0[i].plot_surface(x, y, top1, alpha=0.7, color='r')
-        ave0[i].plot_surface(x, y, top2, alpha=0.7, color='r')
+        ave0[i].plot_surface(x, y, top1, alpha=0.2, color='r')
+        ave0[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
         ave0[i].set_title('Mean Count Error for Duration {}' .format(i+1))
         ave0[i].set_xlabel('Cnp')
         ave0[i].set_ylabel('Dnp')
+        ave0[i].xaxis.set_major_locator(MaxNLocator(integer=True))
+        ave0[i].yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
     plt.show()
@@ -502,29 +505,31 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
     ave1 = []
     # setup the figure and axes for count errors
-    fig = plt.figure(figsize=(2*Duration*3.2, 20))
+    fig = plt.figure(figsize=(2*Duration*3.2, 7))
     for i in range(Duration):
         ave1.append(fig.add_subplot(1,Duration,i+1, projection='3d'))
 
     # prepare the data
-    _x = np.arange(Cnp)
-    _y = np.arange(Dnp)
+    _x = np.arange(Cnp)+1
+    _y = np.arange(Dnp)+1
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
         top = mean_duration_error[:,i,:]
         top = top.transpose()
-        ave1[i].plot_surface(x, y, top, alpha=0.7)
+        ave1[i].plot_surface(x, y, top, alpha=0.9)
 
         std_surface = std_duration_error[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
-        ave1[i].plot_surface(x, y, top1, alpha=0.7, color='r')
-        ave1[i].plot_surface(x, y, top2, alpha=0.7, color='r')
+        ave1[i].plot_surface(x, y, top1, alpha=0.2, color='r')
+        ave1[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
         ave1[i].set_title('Mean Duration Error for Duration {}' .format(i+1))
         ave1[i].set_xlabel('Cnp')
         ave1[i].set_ylabel('Dnp')
+        ave1[i].xaxis.set_major_locator(MaxNLocator(integer=True))
+        ave1[i].yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
     plt.show()
@@ -532,29 +537,31 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
     ave2 = []
     # setup the figure and axes for count errors
-    fig = plt.figure(figsize=(2*Duration*3.2, 20))
+    fig = plt.figure(figsize=(2*Duration*3.2, 7))
     for i in range(Duration):
         ave2.append(fig.add_subplot(1,Duration,i+1, projection='3d'))
 
     # prepare the data
-    _x = np.arange(Cnp)
-    _y = np.arange(Dnp)
+    _x = np.arange(Cnp)+1
+    _y = np.arange(Dnp)+1
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
         top = mean_amplitude_error[:,i,:]
         top = top.transpose()
-        ave2[i].plot_surface(x, y, top, alpha=0.7)
+        ave2[i].plot_surface(x, y, top, alpha=0.9)
 
         std_surface = std_amplitude_error[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
-        ave2[i].plot_surface(x, y, top1, alpha=0.7, color='r')
-        ave2[i].plot_surface(x, y, top2, alpha=0.7, color='r')
+        ave2[i].plot_surface(x, y, top1, alpha=0.2, color='r')
+        ave2[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
         ave2[i].set_title('Mean Amplitude Error for Duration {}' .format(i+1))
         ave2[i].set_xlabel('Cnp')
         ave2[i].set_ylabel('Dnp')
+        ave2[i].xaxis.set_major_locator(MaxNLocator(integer=True))
+        ave2[i].yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
     plt.show()
@@ -584,22 +591,28 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
     fig, axs = plt.subplots(3, 1, figsize=(10,15))
     fig.tight_layout(pad=4.0)
-    durations = [i for i in range(Duration)]
+    durations = [i+1 for i in range(Duration)]
 
     axs[0].errorbar(durations,ave0,std0, linestyle='None', marker='o', linewidth=1.0)
     axs[0].set_title("Average count error: {}" .format(np.nanmean(count_error.ravel())))
     axs[0].set_xlabel("Duration")
     axs[0].set_ylabel("Average Error")
+    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[0].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[1].errorbar(durations,ave1,std1, linestyle='None', marker='o', linewidth=1.0)
     axs[1].set_title("Average duration error: {}" .format(np.nanmean(duration_error.ravel())))
     axs[1].set_xlabel("Duration")
     axs[1].set_ylabel("Average Error")
+    axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[1].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[2].errorbar(durations,ave2,std2, linestyle='None', marker='o', linewidth=1.0)
     axs[2].set_title("Average amplitude error: {}" .format(np.nanmean(amplitude_error.ravel())))
     axs[2].set_xlabel("Duration")
     axs[2].set_ylabel("Average Error")
+    axs[2].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[2].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.show()
 
@@ -669,7 +682,7 @@ def run_model(args, arguments, include_improper_on_error_computation=True):
 
     if arguments['VADL'].batch_size < 21:
         fig, axs = plt.subplots(arguments['VADL'].batch_size, 1, figsize=(10,arguments['VADL'].batch_size*3))
-        fig.tight_layout(pad=4.0)
+        fig.tight_layout(pad=6.0)
         for i, batch_element in enumerate(range(arguments['VADL'].batch_size)):
             mean = torch.mean(noisy_signals[batch_element])
             axs[i].plot(times[batch_element],noisy_signals[batch_element]-mean)

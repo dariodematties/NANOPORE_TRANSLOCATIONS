@@ -19,6 +19,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 sys.path.append('../ResNet')
 import ResNet1d as rn
@@ -426,22 +427,25 @@ def plot_stats(TRDL, reduced_count_translocations, reduced_duration_translocatio
 
     fig, axs = plt.subplots(3, 1, figsize=(10,15))
     fig.tight_layout(pad=4.0)
-    traces = [i for i in range(Trace)]
+    traces = [i+1 for i in range(Trace)]
 
     axs[0].errorbar(traces,ave0,std0, linestyle='None', marker='o', linewidth=1.0)
     axs[0].set_title("Average translocation count: {}" .format(np.mean(count_translocation)))
     axs[0].set_xlabel("Trace")
     axs[0].set_ylabel("Average")
+    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[1].errorbar(traces,ave1,std1, linestyle='None', marker='o', linewidth=1.0)
     axs[1].set_title("Average translocation duration: {}" .format(np.mean(duration_translocation)))
     axs[1].set_xlabel("Trace")
     axs[1].set_ylabel("Average")
+    axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[2].errorbar(traces,ave2,std2, linestyle='None', marker='o', linewidth=1.0)
     axs[2].set_title("Average translocation amplitude: {}" .format(np.mean(amplitude_translocation)))
     axs[2].set_xlabel("Trace")
     axs[2].set_ylabel("Average")
+    axs[2].xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.show()
 
@@ -511,7 +515,7 @@ def run_model(args, arguments):
 
     if args.batch_size < 21:
         fig, axs = plt.subplots(args.batch_size, 1, figsize=(10,args.batch_size*3))
-        fig.tight_layout(pad=4.0)
+        fig.tight_layout(pad=6.0)
         for i, batch_element in enumerate(range(args.batch_size)):
             mean = torch.mean(signals[batch_element])
             axs[i].plot(times[batch_element],signals[batch_element]-mean)
