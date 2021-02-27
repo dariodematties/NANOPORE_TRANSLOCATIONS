@@ -38,12 +38,12 @@ def parse():
                         help='path to translocation counter')
     parser.add_argument('predictor', metavar='PREDICTOR', type=str,
                         help='path to translocation feature predictor')
-    parser.add_argument('--arch_1', '-a_1', metavar='ARCH_1', default='ResNet18',
+    parser.add_argument('--arch-1', '-a-1', metavar='ARCH_1', default='ResNet18',
                         choices=model_names,
                         help='model architecture for translocation counter: ' +
                         ' | '.join(model_names) +
                         ' (default: ResNet18)')
-    parser.add_argument('--arch_2', '-a_2', metavar='ARCH_2', default='ResNet18',
+    parser.add_argument('--arch-2', '-a-2', metavar='ARCH_2', default='ResNet18',
                         choices=model_names,
                         help='model architecture for translocation feature predictions: ' +
                         ' | '.join(model_names) +
@@ -52,6 +52,10 @@ def parse():
                         metavar='N', help='mini-batch size per process (default: 6)')
     parser.add_argument('--print-freq', '-p', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('-save-stats', default='', type=str, metavar='STATS_PATH',
+                        help='path to save the stats produced during validation (default: none)')
+    parser.add_argument('-stats-from-file', default='', type=str, metavar='STATS_FROM_FILE',
+                        help='path to load the stats produced during validation from a file (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
     parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
@@ -235,6 +239,41 @@ def main():
         raise Exception("error: No predictor path provided")
 
 
+
+
+    # plots validation stats from a file
+    if args.stats_from_file and args.local_rank == 0:
+        # Use a local scope to avoid dangling references
+        def bring_stats_from_file():
+            if os.path.isfile(args.stats_from_file):
+                print("=> loading stats from file '{}'" .format(args.stats_from_file))
+                if args.cpu:
+                    stats = torch.load(args.stats_from_file, map_location='cpu')
+                else:
+                    stats = torch.load(args.stats_from_file, map_location = lambda storage, loc: storage.cuda(args.gpu))
+
+                count_errors = stats['count_errors']
+                duration_errors = stats['duration_errors']
+                amplitude_errors = stats['amplitude_errors']
+                Cnp = stats['Cnp']
+                Duration = stats['Duration']
+                Dnp = stats['Dnp']
+                Arch = stats['Arch']
+
+                print("=> loaded stats '{}'" .format(args.stats_from_file))
+                return count_errors, duration_errors, amplitude_errors, Cnp, Duration, Dnp, Arch 
+            else:
+                print("=> no stats found at '{}'" .format(args.stats_from_file))
+
+        count_errors, duration_errors, amplitude_errors, Cnp, Duration, Dnp, Arch = bring_stats_from_file()
+        plot_stats(Cnp, Duration, Dnp, count_errors, duration_errors, amplitude_errors)
+
+        return
+
+
+
+
+
     # Data loading code
     valdir = os.path.join(args.data, 'test')
 
@@ -289,12 +328,22 @@ def main():
 
         [count_errors, duration_errors, amplitude_errors, improper_measures] = compute_error_stats(args, arguments)
         if args.local_rank == 0:
-            plot_stats(VADL, count_errors, duration_errors, amplitude_errors)
+            (Cnp, Duration, Dnp) = VADL.shape[:3]
+            plot_stats(Cnp, Duration, Dnp, count_errors, duration_errors, amplitude_errors)
             print("This backbone produces {} improper measures.\nImproper measures are produced when the ground truth establishes 0 number of pulses but the network predicts one or more pulses."\
                     .format(improper_measures))
 
-        return
+            if args.save_stats:
+                Model_Util.save_stats({'count_errors': count_errors,
+                                       'duration_errors': duration_errors,
+                                       'amplitude_errors': amplitude_errors,
+                                       'Cnp': VADL.shape[0],
+                                       'Duration': VADL.shape[1],
+                                       'Dnp': VADL.shape[2],
+                                       'Arch': args.arch_2},
+                                       args.save_stats)
 
+        return
 
 
 
@@ -449,7 +498,7 @@ def compute_error_stats(args, arguments, include_improper_on_error_computation=T
 
 
 
-def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplitude_error):
+def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, reduced_amplitude_error):
     mean_count_error = reduced_count_error.numpy()
     mean_count_error = np.nanmean(mean_count_error, 3)
 
@@ -467,9 +516,6 @@ def plot_stats(VADL, reduced_count_error, reduced_duration_error, reduced_amplit
 
     std_amplitude_error = reduced_amplitude_error.numpy()
     std_amplitude_error = np.nanstd(std_amplitude_error, 3)
-
-    (Cnp, Duration, Dnp) = VADL.shape[:3]
-
 
     ave0 = []
     # setup the figure and axes for count errors

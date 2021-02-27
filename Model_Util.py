@@ -173,3 +173,19 @@ def plot_counter_stats(losses, counter_errors):
 
     plt.show()
 
+
+
+
+
+def save_stats(stats, path, filename='stats.pth.tar'):
+    directory = os.path.join(path)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    directory = os.path.join(path, stats['Arch'])
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    print('Saving backbone model stats for {}'.format(stats['Arch']))
+    torch.save(stats, os.path.join(directory, filename))
+

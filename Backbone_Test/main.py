@@ -39,12 +39,12 @@ def parse():
                         help='path to translocation counter')
     parser.add_argument('predictor', metavar='PREDICTOR', type=str,
                         help='path to translocation feature predictor')
-    parser.add_argument('--arch_1', '-a_1', metavar='ARCH_1', default='ResNet18',
+    parser.add_argument('--arch-1', '-a-1', metavar='ARCH_1', default='ResNet18',
                         choices=model_names,
                         help='model architecture for translocation counter: ' +
                         ' | '.join(model_names) +
                         ' (default: ResNet18)')
-    parser.add_argument('--arch_2', '-a_2', metavar='ARCH_2', default='ResNet18',
+    parser.add_argument('--arch-2', '-a-2', metavar='ARCH_2', default='ResNet18',
                         choices=model_names,
                         help='model architecture for translocation feature predictions: ' +
                         ' | '.join(model_names) +
@@ -53,6 +53,10 @@ def parse():
                         metavar='N', help='mini-batch size per process (default: 6)')
     parser.add_argument('--print-freq', '-p', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('-save-stats', default='', type=str, metavar='STATS_PATH',
+                        help='path to save the stats produced during validation (default: none)')
+    parser.add_argument('-stats-from-file', default='', type=str, metavar='STATS_FROM_FILE',
+                        help='path to load the stats produced during validation from a file (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
     parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
@@ -238,6 +242,44 @@ def main():
         raise Exception("error: No predictor path provided")
 
 
+
+
+
+
+    # plots validation stats from a file
+    if args.stats_from_file and args.local_rank == 0:
+        # Use a local scope to avoid dangling references
+        def bring_stats_from_file():
+            if os.path.isfile(args.stats_from_file):
+                print("=> loading stats from file '{}'" .format(args.stats_from_file))
+                if args.cpu:
+                    stats = torch.load(args.stats_from_file, map_location='cpu')
+                else:
+                    stats = torch.load(args.stats_from_file, map_location = lambda storage, loc: storage.cuda(args.gpu))
+
+                count_translocations = stats['count_translocations']
+                duration_translocations = stats['duration_translocations']
+                amplitude_translocations = stats['amplitude_translocations']
+                Trace = stats['Trace']
+                Arch = stats['Arch']
+
+                print("=> loaded stats '{}'" .format(args.stats_from_file))
+                return count_translocations, duration_translocations, amplitude_translocations, Trace, Arch 
+            else:
+                print("=> no stats found at '{}'" .format(args.stats_from_file))
+
+        count_translocations, duration_translocations, amplitude_translocations, Trace, Arch = bring_stats_from_file()
+        plot_stats(Trace, count_translocations, duration_translocations, amplitude_translocations)
+
+        return
+
+
+
+
+
+
+
+
     # Data loading code
     testdir = args.data
 
@@ -281,7 +323,16 @@ def main():
 
         [count_translocations, duration_translocations, amplitude_translocations] = compute_value_stats(args, arguments)
         if args.local_rank == 0:
-            plot_stats(TRDL, count_translocations, duration_translocations, amplitude_translocations)
+            Trace = TRDL.shape[0]
+            plot_stats(Trace, count_translocations, duration_translocations, amplitude_translocations)
+
+            if args.save_stats:
+                Model_Util.save_stats({'count_translocations': count_translocations,
+                                       'duration_translocations': duration_translocations,
+                                       'amplitude_translocations': amplitude_translocations,
+                                       'Trace': TRDL.shape[0],
+                                       'Arch': args.arch_2},
+                                       args.save_stats)
 
         return
 
@@ -403,7 +454,7 @@ def compute_value_stats(args, arguments, include_improper_on_error_computation=T
 
 
 
-def plot_stats(TRDL, reduced_count_translocations, reduced_duration_translocations, reduced_amplitude_translocations):
+def plot_stats(Trace, reduced_count_translocations, reduced_duration_translocations, reduced_amplitude_translocations):
     ave0 = []
     std0 = []
     ave1 = []
@@ -413,8 +464,6 @@ def plot_stats(TRDL, reduced_count_translocations, reduced_duration_translocatio
     count_translocation = reduced_count_translocations.numpy()
     duration_translocation = reduced_duration_translocations.numpy()
     amplitude_translocation = reduced_amplitude_translocations.numpy()
-
-    Trace = TRDL.shape[0]
 
     for i in range(Trace):
         ave0.append(np.mean(count_translocation[i,:]))
