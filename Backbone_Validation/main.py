@@ -60,6 +60,8 @@ def parse():
                         help='evaluate model on validation set')
     parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
                         help='Compute statistics about errors of a trained model on validation set')
+    parser.add_argument('-out-stats', '--output-statistics', dest='output_statistics', action='store_true',
+                        help='Compute statistics about outputs of a trained model on validation set')
     parser.add_argument('-r', '--run', dest='run', action='store_true',
                         help='Run a trained model and plots a batch of predictions in noisy signals')
     parser.add_argument("--local_rank", default=0, type=int)
@@ -345,6 +347,29 @@ def main():
 
         return
 
+    if args.output_statistics:
+        arguments = {'model_1': model_1,
+                     'model_2': model_2,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
+
+        [counts, durations, amplitudes] = compute_output_stats(args, arguments)
+        if args.local_rank == 0:
+            (Cnp, Duration, Dnp) = VADL.shape[:3]
+            plot_stats(Cnp, Duration, Dnp, counts, durations, amplitudes, Error=False)
+
+            if args.save_stats:
+                Model_Util.save_stats({'counts': counts,
+                                       'durations': durations,
+                                       'amplitudes': amplitudes,
+                                       'Cnp': VADL.shape[0],
+                                       'Duration': VADL.shape[1],
+                                       'Dnp': VADL.shape[2],
+                                       'Arch': args.arch_2},
+                                       args.save_stats)
+
+        return
 
 
 
@@ -498,24 +523,24 @@ def compute_error_stats(args, arguments, include_improper_on_error_computation=T
 
 
 
-def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, reduced_amplitude_error):
-    mean_count_error = reduced_count_error.numpy()
-    mean_count_error = np.nanmean(mean_count_error, 3)
+def plot_stats(Cnp, Duration, Dnp, reduced_count, reduced_duration, reduced_amplitude, Error=True):
+    mean_count = reduced_count.numpy()
+    mean_count = np.nanmean(mean_count, 3)
 
-    std_count_error = reduced_count_error.numpy()
-    std_count_error = np.nanstd(std_count_error, 3)
+    std_count = reduced_count.numpy()
+    std_count = np.nanstd(std_count, 3)
 
-    mean_duration_error = reduced_duration_error.numpy()
-    mean_duration_error = np.nanmean(mean_duration_error, 3)
+    mean_duration = reduced_duration.numpy()
+    mean_duration = np.nanmean(mean_duration, 3)
 
-    std_duration_error = reduced_duration_error.numpy()
-    std_duration_error = np.nanstd(std_duration_error, 3)
+    std_duration = reduced_duration.numpy()
+    std_duration = np.nanstd(std_duration, 3)
 
-    mean_amplitude_error = reduced_amplitude_error.numpy()
-    mean_amplitude_error = np.nanmean(mean_amplitude_error, 3)
+    mean_amplitude = reduced_amplitude.numpy()
+    mean_amplitude = np.nanmean(mean_amplitude, 3)
 
-    std_amplitude_error = reduced_amplitude_error.numpy()
-    std_amplitude_error = np.nanstd(std_amplitude_error, 3)
+    std_amplitude = reduced_amplitude.numpy()
+    std_amplitude = np.nanstd(std_amplitude, 3)
 
     ave0 = []
     # setup the figure and axes for count errors
@@ -529,17 +554,21 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, 
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
-        top = mean_count_error[:,i,:]
+        top = mean_count[:,i,:]
         top = top.transpose()
         ave0[i].plot_surface(x, y, top, alpha=0.9)
 
-        std_surface = std_count_error[:,i,:]
+        std_surface = std_count[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
         ave0[i].plot_surface(x, y, top1, alpha=0.2, color='r')
         ave0[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
-        ave0[i].set_title('Mean Count Error for Duration {}' .format(i+1))
+        if Error==True:
+            ave0[i].set_title('Mean Count Error for Duration {}' .format(i+1))
+        else:
+            ave0[i].set_title('Mean Count for Duration {}' .format(i+1))
+
         ave0[i].set_xlabel('Cnp')
         ave0[i].set_ylabel('Dnp')
         ave0[i].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -561,17 +590,21 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, 
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
-        top = mean_duration_error[:,i,:]
+        top = mean_duration[:,i,:]
         top = top.transpose()
         ave1[i].plot_surface(x, y, top, alpha=0.9)
 
-        std_surface = std_duration_error[:,i,:]
+        std_surface = std_duration[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
         ave1[i].plot_surface(x, y, top1, alpha=0.2, color='r')
         ave1[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
-        ave1[i].set_title('Mean Duration Error for Duration {}' .format(i+1))
+        if Error==True:
+            ave1[i].set_title('Mean Duration Error for Duration {}' .format(i+1))
+        else:
+            ave1[i].set_title('Mean Duration for Duration {}' .format(i+1))
+
         ave1[i].set_xlabel('Cnp')
         ave1[i].set_ylabel('Dnp')
         ave1[i].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -593,17 +626,21 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, 
     x, y = np.meshgrid(_x, _y)
     width = depth = 1
     for i in range(Duration):
-        top = mean_amplitude_error[:,i,:]
+        top = mean_amplitude[:,i,:]
         top = top.transpose()
         ave2[i].plot_surface(x, y, top, alpha=0.9)
 
-        std_surface = std_amplitude_error[:,i,:]
+        std_surface = std_amplitude[:,i,:]
         top1 = top+std_surface.transpose()
         top2 = top-std_surface.transpose()
         ave2[i].plot_surface(x, y, top1, alpha=0.2, color='r')
         ave2[i].plot_surface(x, y, top2, alpha=0.2, color='r')
 
-        ave2[i].set_title('Mean Amplitude Error for Duration {}' .format(i+1))
+        if Error==True:
+            ave2[i].set_title('Mean Amplitude Error for Duration {}' .format(i+1))
+        else:
+            ave2[i].set_title('Mean Amplitude for Duration {}' .format(i+1))
+
         ave2[i].set_xlabel('Cnp')
         ave2[i].set_ylabel('Dnp')
         ave2[i].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -623,16 +660,16 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, 
     std1 = []
     ave2 = []
     std2 = []
-    count_error = reduced_count_error.numpy()
-    duration_error = reduced_duration_error.numpy()
-    amplitude_error = reduced_amplitude_error.numpy()
+    count = reduced_count.numpy()
+    duration = reduced_duration.numpy()
+    amplitude = reduced_amplitude.numpy()
     for i in range(Duration):
-        ave0.append(np.nanmean(count_error[:,i,:,:].ravel()))
-        std0.append(np.nanstd(count_error[:,i,:,:].ravel()))
-        ave1.append(np.nanmean(duration_error[:,i,:,:].ravel()))
-        std1.append(np.nanstd(duration_error[:,i,:,:].ravel()))
-        ave2.append(np.nanmean(amplitude_error[:,i,:,:].ravel()))
-        std2.append(np.nanstd(amplitude_error[:,i,:,:].ravel()))
+        ave0.append(np.nanmean(count[:,i,:,:].ravel()))
+        std0.append(np.nanstd(count[:,i,:,:].ravel()))
+        ave1.append(np.nanmean(duration[:,i,:,:].ravel()))
+        std1.append(np.nanstd(duration[:,i,:,:].ravel()))
+        ave2.append(np.nanmean(amplitude[:,i,:,:].ravel()))
+        std2.append(np.nanstd(amplitude[:,i,:,:].ravel()))
 
 
     fig, axs = plt.subplots(3, 1, figsize=(10,15))
@@ -640,23 +677,47 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count_error, reduced_duration_error, 
     durations = [i+1 for i in range(Duration)]
 
     axs[0].errorbar(durations,ave0,std0, linestyle='None', marker='o', linewidth=1.0)
-    axs[0].set_title("Average count error: {}" .format(np.nanmean(count_error.ravel())))
+    if Error==True:
+        axs[0].set_title("Average count error: {}" .format(np.nanmean(count.ravel())))
+    else:
+        axs[0].set_title("Average count: {}" .format(np.nanmean(count.ravel())))
+
     axs[0].set_xlabel("Duration")
-    axs[0].set_ylabel("Average Error")
+    if Error==True:
+        axs[0].set_ylabel("Average Error")
+    else:
+        axs[0].set_ylabel("Average")
+
     axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[0].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[1].errorbar(durations,ave1,std1, linestyle='None', marker='o', linewidth=1.0)
-    axs[1].set_title("Average duration error: {}" .format(np.nanmean(duration_error.ravel())))
+    if Error==True:
+        axs[1].set_title("Average duration error: {}" .format(np.nanmean(duration.ravel())))
+    else:
+        axs[1].set_title("Average duration: {}" .format(np.nanmean(duration.ravel())))
+
     axs[1].set_xlabel("Duration")
-    axs[1].set_ylabel("Average Error")
+    if Error==True:
+        axs[1].set_ylabel("Average Error")
+    else:
+        axs[1].set_ylabel("Average")
+
     axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[1].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     axs[2].errorbar(durations,ave2,std2, linestyle='None', marker='o', linewidth=1.0)
-    axs[2].set_title("Average amplitude error: {}" .format(np.nanmean(amplitude_error.ravel())))
+    if Error==True:
+        axs[2].set_title("Average amplitude error: {}" .format(np.nanmean(amplitude.ravel())))
+    else:
+        axs[2].set_title("Average amplitude: {}" .format(np.nanmean(amplitude.ravel())))
+
     axs[2].set_xlabel("Duration")
-    axs[2].set_ylabel("Average Error")
+    if Error==True:
+        axs[2].set_ylabel("Average Error")
+    else:
+        axs[2].set_ylabel("Average")
+
     axs[2].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[2].yaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -773,6 +834,99 @@ def run_model(args, arguments, include_improper_on_error_computation=True):
 
     print("In this batch we has {} improper measures.\nImproper measures are produced when the ground truth establishes 0 number of pulses but the network predicts one or more pulses."\
             .format(int(improper_measures)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def compute_output_stats(args, arguments):
+    # switch to evaluate mode
+    arguments['model_1'].eval()
+    arguments['model_2'].eval()
+    counts = torch.zeros(arguments['VADL'].shape)
+    durations = torch.zeros(arguments['VADL'].shape)
+    amplitudes = torch.zeros(arguments['VADL'].shape)
+    arguments['VADL'].reset_avail_winds(arguments['epoch'])
+    for i in range(arguments['VADL'].total_number_of_windows):
+        if i % args.world_size == args.local_rank:
+            (Cnp, Duration, Dnp, window) = np.unravel_index(i, arguments['VADL'].shape)
+
+            # bring a new window
+            times, noisy_signals, clean_signals, _, _ = arguments['VADL'].get_signal_window(Cnp, Duration, Dnp, window)
+
+            times = times.unsqueeze(0)
+            noisy_signals = noisy_signals.unsqueeze(0)
+            clean_signals = clean_signals.unsqueeze(0)
+
+            mean = torch.mean(noisy_signals, 1, True)
+            noisy_signals = noisy_signals-mean
+
+            with torch.no_grad():
+                noisy_signals = noisy_signals.unsqueeze(1)
+                num_of_pulses = arguments['model_1'](noisy_signals)
+                external = torch.reshape(num_of_pulses ,[1,1]).round()
+                outputs = arguments['model_2'](noisy_signals, external)
+                noisy_signals = noisy_signals.squeeze(1)
+
+                features=outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(1,1)
+                features=torch.mean(features,dim=0)
+
+                durations[Cnp, Duration, Dnp, window] = features[0]
+                amplitudes[Cnp, Duration, Dnp, window] = features[1]
+
+                count=external.data.to('cpu')
+                count=torch.mean(count,dim=0)
+
+                counts[Cnp, Duration, Dnp, window] = count
+
+
+        #if args.test:
+            #if i > 10:
+                #break
+
+    if args.distributed:
+        reduced_count = Utilities.reduce_tensor_sum_dest(counts.data, 0)
+        reduced_duration = Utilities.reduce_tensor_sum_dest(durations.data, 0)
+        reduced_amplitude = Utilities.reduce_tensor_sum_dest(amplitudes.data, 0)
+    else:
+        reduced_count = counts.data
+        reduced_duration = durations.data
+        reduced_amplitude = amplitudes.data
+
+    return [reduced_count, reduced_duration, reduced_amplitude]
+
 
 
 
