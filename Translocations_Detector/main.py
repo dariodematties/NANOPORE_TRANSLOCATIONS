@@ -625,17 +625,17 @@ def main():
 
         #return
 
-    #if args.plot_training_history and args.local_rank == 0:
-        #Model_Util.plot_features_stats(loss_history, duration_error_history, amplitude_error_history)
-        #hours = int(total_time.sum / 3600)
-        #minutes = int((total_time.sum % 3600) / 60)
-        #seconds = int((total_time.sum % 3600) % 60)
-        #print('The total training time was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
-        #hours = int(total_time.avg / 3600)
-        #minutes = int((total_time.avg % 3600) / 60)
-        #seconds = int((total_time.avg % 3600) % 60)
-        #print('while the average time during one epoch of training was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
-        #return
+    if args.plot_training_history and args.local_rank == 0:
+        Model_Util.plot_detector_stats(loss_history, precision_history)
+        hours = int(total_time.sum / 3600)
+        minutes = int((total_time.sum % 3600) / 60)
+        seconds = int((total_time.sum % 3600) % 60)
+        print('The total training time was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
+        hours = int(total_time.avg / 3600)
+        minutes = int((total_time.avg % 3600) / 60)
+        seconds = int((total_time.avg % 3600) % 60)
+        print('while the average time during one epoch of training was {} hours {} minutes and {} seconds' .format(hours, minutes, seconds))
+        return
 
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -831,7 +831,8 @@ def validate(args, arguments):
             aux_pred_segments = outputs['pred_segments'][j]
 
             for probability, pred_segment in zip(probabilities.to('cpu'), aux_pred_segments.to('cpu')):
-                if probability[-1] < 0.9:
+                #if probability[-1] < 0.9:
+                if torch.argmax(probability) != args.num_classes:
                     segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(), pred_segment[0].item(), pred_segment[1].item()]
                     pred_segments.append(segment)
 

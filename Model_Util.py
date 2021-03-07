@@ -144,6 +144,22 @@ def compute_relative_error(predicted, ground_truth):
 
 
 
+def plot_detector_stats(losses, precisions):
+    fig, (loss, precision) = plt.subplots(2, 1, sharex=True, figsize=(10,10))
+    fig.suptitle('Training process history', fontweight="bold", size=20)
+
+    loss.plot(losses)
+    loss.set(ylabel='Loss')
+
+    precision.plot(precisions, 'tab:green')
+    precision.set(ylabel='Precision')
+
+    plt.show()
+
+
+
+
+
 def plot_features_stats(losses, duration_errors, amplitude_errors):
     fig, (loss, duration, amplitude) = plt.subplots(3, 1, sharex=True, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
