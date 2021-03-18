@@ -10,12 +10,13 @@ sys.path.append('./mAP')
 from Scalable_IoU import intersection_over_union
 
 def mean_average_precision(
-        pred_segments, true_segments, iou_threshold=0.5, seg_format="mix", num_classes=1
+        device, pred_segments, true_segments, iou_threshold=0.5, seg_format="mix", num_classes=1
 ):
     """
     Calculates mean average precision 
 
     Parameters:
+        device (str): the device used in the run
         pred_segments (list): list of lists containing all bsegments with each bsegments
         specified as [train_idx, class_prediction, prob_score, x1, x2]
         true_segments (list): Similar as pred_segments except all the correct ones 
@@ -85,8 +86,8 @@ def mean_average_precision(
 
             if num_gts > 0:
                 iou = intersection_over_union(
-                    torch.unsqueeze(detection[3:],0),
-                    ground_truth_wind[:,3:],
+                    torch.unsqueeze(detection[3:],0).to(device),
+                    ground_truth_wind[:,3:].to(device),
                     segment_format=seg_format,
                 )
                 best_iou = torch.max(iou)

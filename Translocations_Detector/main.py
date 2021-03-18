@@ -852,7 +852,8 @@ def validate(args, arguments):
 
 
     for threshold in np.arange(0.5, 0.95, 0.05):
-        detection_precision=mean_average_precision(pred_segments=pred_segments,
+        detection_precision=mean_average_precision(device=arguments['device'],
+                                                   pred_segments=pred_segments,
                                                    true_segments=true_segments,
                                                    iou_threshold=threshold,
                                                    seg_format="mix",
