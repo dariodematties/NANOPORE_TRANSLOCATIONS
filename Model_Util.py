@@ -161,6 +161,7 @@ def plot_detector_stats(losses, precisions):
 
 
 def plot_features_stats(losses, duration_errors, amplitude_errors):
+    plt.rcParams.update({'font.size': 20})
     fig, (loss, duration, amplitude) = plt.subplots(3, 1, sharex=True, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
@@ -178,6 +179,7 @@ def plot_features_stats(losses, duration_errors, amplitude_errors):
 
 
 def plot_counter_stats(losses, counter_errors):
+    plt.rcParams.update({'font.size': 20})
     fig, (loss, counter) = plt.subplots(2, 1, sharex=True, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
@@ -186,6 +188,7 @@ def plot_counter_stats(losses, counter_errors):
 
     counter.plot(counter_errors, 'tab:green')
     counter.set(ylabel='Counter error')
+    counter.set(xlabel='Epochs')
 
     plt.show()
 
