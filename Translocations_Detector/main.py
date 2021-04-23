@@ -66,6 +66,8 @@ def parse():
                         help='manual epoch number (useful on restarts)')
     parser.add_argument('-b', '--batch-size', default=6, type=int,
                         metavar='N', help='mini-batch size per process (default: 6)')
+    parser.add_argument('--lr-backbone', default=1e-5, type=float,
+                        metavar='LR', help='Backbone learning rate.')
     parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                         metavar='LR', help='Initial learning rate.  Will be scaled by the value 1/learning rate modulator every learning-rate-scheduler-period epochs.')
     parser.add_argument('--lrs', '--learning-rate-scaling', default='linear', type=str,
@@ -82,6 +84,8 @@ def parse():
                         help='Number of warmup epochs (default: 10)')
     parser.add_argument('--print-freq', '-p', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('--val-freq', '-vf', default=5, type=int,
+                        metavar='VF', help='validation frequency in epochs (default: 5)')
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -441,7 +445,7 @@ def main():
 
 
     # Set optimizer
-    optimizer = Model_Util.get_optimizer(detr, args)
+    optimizer = Model_Util.get_DETR_optimizer(detr, args)
     if args.local_rank==0 and args.verbose:
         print('Optimizer used for this run is {}'.format(args.optimizer))
 
@@ -654,8 +658,13 @@ def main():
         epoch_time, avg_batch_time = train(args, arguments)
         total_time.update(epoch_time)
 
-        # evaluate on validation set
-        precision = validate(args, arguments)
+        # validate every val_freq epochs
+        if epoch%args.val_freq == 0 and epoch != 0:
+            # evaluate on validation set
+            print("\nValidating ...\nComputing mean average precision (mAP) for epoch {}" .format(epoch))
+            precision = validate(args, arguments)
+        else:
+            precision = best_precision
 
         #if args.test:
             #break
@@ -663,7 +672,9 @@ def main():
         lr_scheduler.step()
         # remember the best detr and save checkpoint
         if args.local_rank == 0:
-            print('From validation we have precision is {} while best_precision is {}'.format(precision, best_precision))
+            if epoch%args.val_freq == 0:
+                print('From validation we have precision is {} while best_precision is {}'.format(precision, best_precision))
+
             is_best = precision > best_precision
             best_precision = max(precision, best_precision)
             Model_Util.save_checkpoint({
