@@ -92,6 +92,43 @@ def get_optimizer(model, args):
 
 
 
+
+
+def get_DETR_optimizer(model, args):
+    """Returns an optimizer."""
+    model_without_ddp = model
+    if args.distributed:
+        model_without_ddp = model.module
+
+    param_dicts = [
+        {"params": [p for n, p in model_without_ddp.named_parameters() if "backbone" not in n and p.requires_grad]},
+        {
+            "params": [p for n, p in model_without_ddp.named_parameters() if "backbone" in n and p.requires_grad],
+            "lr": args.lr_backbone,
+        },
+    ]
+    if args.optimizer == 'sgd':
+        optimizer = optim.SGD(param_dicts,
+                              args.lr,
+                              momentum=args.momentum)
+
+    elif args.optimizer == 'adam':
+        optimizer = optim.Adam(param_dicts,
+                               args.lr)
+
+    elif args.optimizer == 'adamw':
+        optimizer = optim.AdamW(param_dicts,
+                                args.lr)
+
+    else:
+        raise ValueError('Unknown optimizer {}'.format(args.optimizer))
+
+    return optimizer
+
+
+
+
+
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', best_filename='model_best.pth.tar'):
     directory = os.path.join(state['arch'])
     if not os.path.exists(directory):
@@ -145,13 +182,14 @@ def compute_relative_error(predicted, ground_truth):
 
 
 def plot_detector_stats(losses, precisions):
-    fig, (loss, precision) = plt.subplots(2, 1, sharex=True, figsize=(10,10))
+    fig, (loss, precision) = plt.subplots(2, 1, sharex=False, figsize=(10,10))
     fig.suptitle('Training process history', fontweight="bold", size=20)
 
     loss.plot(losses)
     loss.set(ylabel='Loss')
 
-    precision.plot(precisions, 'tab:green')
+    precision.plot(precisions, 'tab:green', marker = 'o')
+    precision.set_yscale('log')
     precision.set(ylabel='Precision')
 
     plt.show()
