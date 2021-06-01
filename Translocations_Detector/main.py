@@ -591,16 +591,16 @@ def main():
 
 
 
-    #if args.run:
-        #arguments = {'model': model,
-                     #'device': device,
-                     #'epoch': 0,
-                     #'VADL': VADL}
+    if args.run:
+        arguments = {'model': detr,
+                     'device': device,
+                     'epoch': 0,
+                     'VADL': VADL}
 
-        #if args.local_rank == 0:
-            #run_model(args, arguments)
+        if args.local_rank == 0:
+            run_model(args, arguments)
 
-        #return
+        return
 
     #if args.statistics:
         #arguments = {'model': model,
@@ -1106,21 +1106,22 @@ def run_model(args, arguments):
     arguments['VADL'].reset_avail_winds(arguments['epoch'])
 
     # bring a new batch
-    times, noisy_signals, clean_signals, _, labels = arguments['VADL'].get_batch()
+    times, noisy_signals, clean_signals, targets, labels = arguments['VADL'].get_batch()
     
     mean = torch.mean(noisy_signals, 1, True)
     noisy_signals = noisy_signals-mean
 
     with torch.no_grad():
         noisy_signals = noisy_signals.unsqueeze(1)
-        external = torch.reshape(labels[:,0],[arguments['VADL'].batch_size,1])
-        outputs = arguments['model'](noisy_signals, external)
+        #external = torch.reshape(labels[:,0],[arguments['VADL'].batch_size,1])
+        outputs = arguments['model'](noisy_signals)
         noisy_signals = noisy_signals.squeeze(1)
 
 
     times = times.cpu()
     noisy_signals = noisy_signals.cpu()
     clean_signals = clean_signals.cpu()
+    targets = targets.cpu()
     labels = labels.cpu()
 
 
@@ -1128,21 +1129,56 @@ def run_model(args, arguments):
         fig, axs = plt.subplots(arguments['VADL'].batch_size, 1, figsize=(10,arguments['VADL'].batch_size*3))
         fig.tight_layout(pad=4.0)
         for i, batch_element in enumerate(range(arguments['VADL'].batch_size)):
-            mean = torch.mean(noisy_signals[batch_element])
-            axs[i].plot(times[batch_element],noisy_signals[batch_element]-mean)
-            mean = torch.mean(clean_signals[batch_element])
-            axs[i].plot(times[batch_element],clean_signals[batch_element]-mean)
-            axs[i].set_title("Average translocation time: {}, presiction is {}\nAverage aplitude: {}, prediction is {}"
-            .format(labels[batch_element,1], outputs[batch_element,0]*10**(-3),\
-                        labels[batch_element,2], outputs[batch_element,1]*10**(-10)))
+            # indices to be eliminated from the output (i.e. non-segments)
+            idxs = torch.where(outputs['pred_logits'][batch_element, :, :].argmax(-1) != 1)[0]
+            segments=outputs['pred_segments'][batch_element,idxs,:].detach()
+
+            if arguments['VADL'].batch_size > 1:
+                axs[i].plot(times[batch_element],noisy_signals[batch_element])
+                #axs[i].plot(times[batch_element],clean_signals[batch_element])
+            else:
+                axs.plot(times[batch_element],noisy_signals[batch_element])
+                #axs.plot(times[batch_element],clean_signals[batch_element])
+
+            x_points = (segments[:,0] * arguments['VADL'].window + times[batch_element,0]).cpu().detach().numpy()
+            y_points = np.repeat(0.0, len(x_points))
+      
+            if arguments['VADL'].batch_size > 1:
+                axs[i].plot(x_points, y_points, 'ro')
+            else:
+                axs.plot(x_points, y_points, 'ro')
+
+            #x_points = (outputs['pred_segments'][:,batch_element,0] * arguments['VADL'].window + times[batch_element,0]).cpu().detach().numpy()
+            #y_points = np.repeat(3.8, len(x_points))
+      
+            #if arguments['VADL'].batch_size > 1:
+            #  axs[i].plot(x_points, y_points, 'ro')
+            #else:
+            #  axs.plot(x_points, y_points, 'ro')
+      
+            x_points = ((segments[:,1] + segments[:,0]) * arguments['VADL'].window + times[batch_element,0]).cpu().detach().numpy()
+            #x_points = (segments[:,batch_element,1] * arguments['VADL'].window + times1[batch_element,0]).cpu().detach().numpy()
+            y_points = np.repeat(0.0, len(x_points))
+      
+            if arguments['VADL'].batch_size > 1:
+                axs[i].plot(x_points, y_points, 'gx')
+            else:
+                axs.plot(x_points, y_points, 'gx')
+
+
+            #x_points = ((outputs['pred_segments'][:,batch_element,1] + outputs['pred_segments'][:,batch_element,0]) * DL.window + times[batch_element,0]).cpu().detach().numpy()
+            #x_points = (outputs['pred_segments'][:,batch_element,1] * DL.window + times[batch_element,0]).cpu().detach().numpy()
+            #y_points = np.repeat(3.8, len(x_points))
+
+            #if arguments['VADL'].batch_size > 1:
+            #  axs[i].plot(x_points, y_points, 'gx')
+            #else:
+            #  axs.plot(x_points, y_points, 'gx')
     else:
         print('This will not show more than 20 plots')
 
     plt.show()
 
-    errors=abs((labels[:,1:] - outputs.data.to('cpu')*torch.Tensor([10**(-3), 10**(-10)]).repeat(arguments['VADL'].batch_size,1)) / labels[:,1:])*100
-    av_errors=torch.mean(errors,dim=0)
-    print("Average translocation time error: {0:.2f}\nAverage translocation amplitude error:{1:.2f}".format(av_errors[0], av_errors[1]))
 
 
 
