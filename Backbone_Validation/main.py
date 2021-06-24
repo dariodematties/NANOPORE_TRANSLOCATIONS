@@ -19,6 +19,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FormatStrFormatter
 
 sys.path.append('../ResNet')
 import ResNet1d as rn
@@ -684,51 +685,55 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count, reduced_duration, reduced_ampl
 
     fig, axs = plt.subplots(3, 1, figsize=(10,15))
     fig.tight_layout(pad=4.0)
-    durations = [i+1 for i in range(Duration)]
+    #durations = [i+1 for i in range(Duration)]
+    durations = [0.5,1.0,1.5,3.0,5.0]
 
     axs[0].errorbar(durations,ave0,std0, linestyle='None', marker='o', linewidth=1.5, markeredgewidth=2.0, capsize=10)
     if Error==True:
-        axs[0].set_title("Avg. count error: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(count.ravel()),np.nanstd(count.ravel())), fontsize=fontsize)
+        axs[0].set_title("Avg. count error: {:.2f} [%]\nSTD: {:.2f}" .format(np.nanmean(count.ravel()),np.nanstd(count.ravel())), fontsize=fontsize)
     else:
         axs[0].set_title("Avg. count: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(count.ravel()),np.nanstd(count.ravel())), fontsize=fontsize)
 
-    if Error==True:
-        axs[0].set_ylabel("Avg. Error", fontsize=fontsize)
-    else:
-        axs[0].set_ylabel("Average", fontsize=fontsize)
+    #if Error==True:
+        #axs[0].set_ylabel("Avg. Error [%]", fontsize=fontsize)
+    #else:
+        #axs[0].set_ylabel("Average", fontsize=fontsize)
 
-    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[0].set_xticks([0.5,1.0,1.5,3.0,5.0])
+    #axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[0].yaxis.set_major_locator(MaxNLocator(integer=True))
-    axs[0].axhline(y=0, color='k', linestyle='-', linewidth=0.5) 
+    axs[0].axhline(y=0, color='k', linestyle='-', linewidth=0.5)
 
     axs[1].errorbar(durations,ave1,std1, linestyle='None', marker='o', linewidth=1.5, markeredgewidth=2.0, capsize=10)
     if Error==True:
-        axs[1].set_title("Avg. duration error: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(duration.ravel()),np.nanstd(duration.ravel())), fontsize=fontsize)
+        axs[1].set_title("Avg. duration error: {:.2f} [%]\nSTD: {:.2f}" .format(np.nanmean(duration.ravel()),np.nanstd(duration.ravel())), fontsize=fontsize)
     else:
         axs[1].set_title("Avg. duration: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(duration.ravel()),np.nanstd(duration.ravel())), fontsize=fontsize)
 
     if Error==True:
-        axs[1].set_ylabel("Avg. Error", fontsize=fontsize)
+        axs[1].set_ylabel("Avg. Error [%]", fontsize=fontsize)
     else:
         axs[1].set_ylabel("Average", fontsize=fontsize)
 
-    axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[1].set_xticks([0.5,1.0,1.5,3.0,5.0])
+    #axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[1].yaxis.set_major_locator(MaxNLocator(integer=True))
     axs[1].axhline(y=0, color='k', linestyle='-', linewidth=0.5) 
 
     axs[2].errorbar(durations,ave2,std2, linestyle='None', marker='o', linewidth=1.5, markeredgewidth=2.0, capsize=10)
     if Error==True:
-        axs[2].set_title("Avg. amplitude error: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(amplitude.ravel()),np.nanstd(amplitude.ravel())), fontsize=fontsize)
+        axs[2].set_title("Avg. amplitude error: {:.2f} [%]\nSTD: {:.2f}" .format(np.nanmean(amplitude.ravel()),np.nanstd(amplitude.ravel())), fontsize=fontsize)
     else:
         axs[2].set_title("Avg. amplitude: {:.2f}\nSTD: {:.2f}" .format(np.nanmean(amplitude.ravel()),np.nanstd(amplitude.ravel())), fontsize=fontsize)
 
-    axs[2].set_xlabel("Duration", fontsize=fontsize)
-    if Error==True:
-        axs[2].set_ylabel("Avg. Error", fontsize=fontsize)
-    else:
-        axs[2].set_ylabel("Average", fontsize=fontsize)
+    axs[2].set_xlabel("Duration [ms]", fontsize=fontsize)
+    #if Error==True:
+        #axs[2].set_ylabel("Avg. Error [%]", fontsize=fontsize)
+    #else:
+        #axs[2].set_ylabel("Average", fontsize=fontsize)
 
-    axs[2].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axs[2].set_xticks([0.5,1.0,1.5,3.0,5.0])
+    #axs[2].xaxis.set_major_locator(MaxNLocator(integer=True))
     axs[2].yaxis.set_major_locator(MaxNLocator(integer=True))
     axs[2].axhline(y=0, color='k', linestyle='-', linewidth=0.5) 
 
@@ -771,16 +776,24 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count, reduced_duration, reduced_ampl
     ave0.plot_surface(x, y, top2, alpha=0.2, color='r')
 
     if Error==True:
-        ave0.set_title('Mean Count Error', fontsize=fontsize)
+        ave0.set_title('Mean Count Error [%]', fontsize=25)
     else:
         ave0.set_title('Mean Count', fontsize=fontsize)
 
-    ave0.set_xlabel('Cnp', fontsize=fontsize)
-    ave0.set_ylabel('Dnp', fontsize=fontsize)
+    ave0.set_xlabel('Cnp [nM]', fontsize=15)
+    ave0.set_ylabel('Dnp [nm]', fontsize=15)
     ave0.xaxis.set_major_locator(MaxNLocator(integer=True))
     ave0.yaxis.set_major_locator(MaxNLocator(integer=True))
-    ave0.set_yticklabels([])
-    ave0.set_xticklabels([])
+    ave0.set_xticks(ticks=[1,20])
+    ave0.set_yticks(ticks=[1,15])
+    ave0.set_xticklabels(labels=[0.013,1.0], rotation=45, fontsize=14)
+    ave0.set_yticklabels(labels=[3,17], fontsize=14)
+    #ave0.set_xlabel('Cnp [nM]', fontsize=20)
+    #ave0.set_ylabel('Dnp [nm]', fontsize=20)
+    #ave0.xaxis.set_major_locator(MaxNLocator(integer=True))
+    #ave0.yaxis.set_major_locator(MaxNLocator(integer=True))
+    #ave0.set_yticklabels([])
+    #ave0.set_xticklabels([])
 
     ave1 = fig.add_subplot(3,1,2, projection='3d')
 
@@ -802,16 +815,20 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count, reduced_duration, reduced_ampl
     ave1.plot_surface(x, y, top2, alpha=0.2, color='r')
 
     if Error==True:
-        ave1.set_title('Mean Duration Error', fontsize=fontsize)
+        ave1.set_title('Mean Duration Error [%]', fontsize=25)
     else:
         ave1.set_title('Mean Duration', fontsize=fontsize)
 
-    ave1.set_xlabel('Cnp', fontsize=fontsize)
-    ave1.set_ylabel('Dnp', fontsize=fontsize)
+    ave1.set_xlabel('Cnp [nM]', fontsize=15)
+    ave1.set_ylabel('Dnp [nm]', fontsize=15)
     ave1.xaxis.set_major_locator(MaxNLocator(integer=True))
     ave1.yaxis.set_major_locator(MaxNLocator(integer=True))
-    ave1.set_yticklabels([])
-    ave1.set_xticklabels([])
+    ave1.set_xticks(ticks=[1,20])
+    ave1.set_yticks(ticks=[1,15])
+    ave1.set_xticklabels(labels=[0.013,1.0], rotation=45, fontsize=14)
+    ave1.set_yticklabels(labels=[3,17], fontsize=14)
+    #ave1.set_xticklabels(labels=[0.013,0.016,0.020,0.025,0.032,0.040,0.050,0.063,0.080,0.1,0.13,0.16,0.20,0.25,0.32,0.40,0.50,0.63,0.80,1], rotation=45, fontsize=15)
+    #ave1.set_yticklabels(labels=[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17], rotation=20, fontsize=14)
 
     ave2 = fig.add_subplot(3,1,3, projection='3d')
 
@@ -833,16 +850,24 @@ def plot_stats(Cnp, Duration, Dnp, reduced_count, reduced_duration, reduced_ampl
     ave2.plot_surface(x, y, top2, alpha=0.2, color='r')
 
     if Error==True:
-        ave2.set_title('Mean Amplitude Error', fontsize=fontsize)
+        ave2.set_title('Mean Amplitude Error [%]', fontsize=25)
     else:
         ave2.set_title('Mean Amplitude', fontsize=fontsize)
 
-    ave2.set_xlabel('Cnp', fontsize=fontsize)
-    ave2.set_ylabel('Dnp', fontsize=fontsize)
+    ave2.set_xlabel('Cnp [nM]', fontsize=15)
+    ave2.set_ylabel('Dnp [nm]', fontsize=15)
     ave2.xaxis.set_major_locator(MaxNLocator(integer=True))
     ave2.yaxis.set_major_locator(MaxNLocator(integer=True))
-    ave2.set_yticklabels([])
-    ave2.set_xticklabels([])
+    ave2.set_xticks(ticks=[1,20])
+    ave2.set_yticks(ticks=[1,15])
+    ave2.set_xticklabels(labels=[0.013,1.0], rotation=45, fontsize=14)
+    ave2.set_yticklabels(labels=[3,17], fontsize=14)
+    #ave2.set_xlabel('Cnp [nM]', fontsize=20)
+    #ave2.set_ylabel('Dnp [nm]', fontsize=20)
+    #ave2.xaxis.set_major_locator(MaxNLocator(integer=True))
+    #ave2.yaxis.set_major_locator(MaxNLocator(integer=True))
+    #ave2.set_yticklabels([])
+    #ave2.set_xticklabels([])
 
 
 
@@ -920,15 +945,29 @@ def run_model(args, arguments, include_improper_on_error_computation=True):
         fig.tight_layout(pad=6.0)
         for i, batch_element in enumerate(range(arguments['VADL'].batch_size)):
             mean = torch.mean(noisy_signals[batch_element])
-            axs[i].plot(times[batch_element],noisy_signals[batch_element]-mean)
+            axs[i].plot(times[batch_element]-times[batch_element][0],noisy_signals[batch_element]-mean)
             #mean = torch.mean(clean_signals[batch_element])
             #axs[i].plot(times[batch_element],clean_signals[batch_element]-mean)
-            axs[i].set_title("Avg. duration: {:.2E}, prediction {:.2E}\nAvg. aplitude: {:.2E}, prediction {:.2E}\nNum. of pulses: {}, prediction {}."
+            axs[i].set_title("Avg. duration: {:.2E}, prediction {:.2E}\nAvg. amplitude: {:.2E}, prediction {:.2E}\nNum. of pulses: {}, prediction {}."
             .format(labels[batch_element,1], outputs[batch_element,0]*10**(-3),\
                         labels[batch_element,2], outputs[batch_element,1]*10**(-10),\
                         round(labels[batch_element,0].item()), round(num_of_pulses[batch_element,0].item())), fontsize=fontsize)
-            axs[i].set_yticklabels([])
-            axs[i].set_xticklabels([])
+
+            if i < arguments['VADL'].batch_size-1:
+                axs[i].set_xticklabels([])
+
+            
+            if i == arguments['VADL'].batch_size-1:
+                axs[i].set_xlabel("Time [s]", fontsize=22)
+                axs[i].set_xticklabels((times[batch_element]-times[batch_element][0]).tolist(), fontsize=18)
+                axs[i].xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+            
+            if i == int(arguments['VADL'].batch_size/2):
+                axs[i].set_ylabel("Current [nA]", fontsize=22)
+                
+            axs[i].set_yticklabels(noisy_signals[batch_element].tolist(), fontsize=18)
+            axs[i].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+            #axs[i].set_yticklabels([])
 
     else:
         print('This will not show more than 20 plots')
