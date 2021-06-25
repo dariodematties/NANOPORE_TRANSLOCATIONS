@@ -9,12 +9,15 @@ For instance, in this repository we have three main components.
 * A Translocation Detector (Currently under development)
 
 To obtain access to the datasets to train, validate and test the models, please go to Zenodo:
-[![DOI](https://zenodo.org/badge/321695864.svg)](https://zenodo.org/badge/latestdoi/321695864)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5013856.svg)](https://doi.org/10.5281/zenodo.5013856)
 
 There you will be able to find
 * All the already trained and best validated models for all SNRs
 * The test datasets for all the SNRs and
 * The train, validation and test datasets only for SNR=4
+
+The code of this project is also cited on Zenodo:
+[![DOI](https://zenodo.org/badge/321695864.svg)](https://zenodo.org/badge/latestdoi/321695864)
 
 ## Nanopore Translocations Counter
 
