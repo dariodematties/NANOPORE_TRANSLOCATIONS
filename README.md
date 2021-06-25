@@ -6,7 +6,15 @@ produced in nanopore translocation traces.
 For instance, in this repository we have three main components.
 * A Translocation Counter
 * A Feature Predictor
-* A Translocation Detector
+* A Translocation Detector (Currently under development)
+
+To obtain access to the datasets to train, validate and test the models, please go to Zenodo:
+[![DOI](https://zenodo.org/badge/321695864.svg)](https://zenodo.org/badge/latestdoi/321695864)
+
+There you will be able to find
+* All the already trained and best validated models for all SNRs
+* The test datasets for all the SNRs and
+* The train, validation and test datasets only for SNR=4
 
 ## Nanopore Translocations Counter
 
