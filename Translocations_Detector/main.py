@@ -724,6 +724,16 @@ def train(args, arguments):
     train_loader_len = int(math.ceil(arguments['TADL'].shard_size / args.batch_size))
     i = 0
     arguments['TADL'].reset_avail_winds(arguments['epoch'])
+
+    ########################################################
+    #_, inputs, _, targets, _ = arguments['TADL'].get_batch()
+    #targets = transform_targets(targets)
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(arguments['optimizer'], args.lrsp,
+    #                                                          args.lrm)
+    ########################################################
+    ########################################################
+    #while True:
+    ########################################################
     while i * arguments['TADL'].batch_size < arguments['TADL'].shard_size:
         # get the noisy inputs and the labels
         _, inputs, _, targets, _ = arguments['TADL'].get_batch()
@@ -737,6 +747,10 @@ def train(args, arguments):
         # forward + backward + optimize
         inputs = inputs.unsqueeze(1)
         outputs = arguments['detr'](inputs)
+
+    	########################################################
+        #inputs = inputs.squeeze(1)
+    	########################################################
 
         # Compute the loss
         targets = transform_targets(targets)
@@ -786,6 +800,9 @@ def train(args, arguments):
                       loss=losses))
 
         i += 1
+    	########################################################
+        #lr_scheduler.step()
+    	########################################################
 
     arguments['loss_history'].append(losses.avg)
 
