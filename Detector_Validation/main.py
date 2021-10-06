@@ -486,7 +486,8 @@ def main():
 
 
     # Data loading code
-    testdir = os.path.join(args.data, 'test')
+    testdir = os.path.join(args.data, 'test_i')
+    #testdir = os.path.join(args.data, 'test')
 
     if args.test:
         test_f = h5py.File(testdir + '/test_toy.h5', 'r')
@@ -495,7 +496,8 @@ def main():
 
 
     # this is the dataset for testing
-    sampling_rate = 10000                   # This is the number of samples per second of the signals in the dataset
+    sampling_rate = 100000                   # This is the number of samples per second of the signals in the dataset
+    #sampling_rate = 10000                   # This is the number of samples per second of the signals in the dataset
     if args.test:
         number_of_concentrations = 2        # This is the number of different concentrations in the dataset
         number_of_durations = 2             # This is the number of different translocation durations per concentration in the dataset
@@ -504,10 +506,14 @@ def main():
         length = 10                         # This is the time of a complete signal for certain concentration and duration
     else:
         number_of_concentrations = 20       # This is the number of different concentrations in the dataset
-        number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
+        number_of_durations = 1             # This is the number of different translocation durations per concentration in the dataset
+        #number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
         number_of_diameters = 15            # This is the number of different translocation durations per concentration in the dataset
-        window = 0.5                        # This is the time window in seconds
-        length = 10                         # This is the time of a complete signal for certain concentration and duration
+        window = 0.049999                        # This is the time window in seconds
+        #window = 0.5                        # This is the time window in seconds
+        length = 4.9999                          # This is the time of a complete signal for certain concentration and duration
+        #length = 5                          # This is the time of a complete signal for certain concentration and duration
+        #length = 10                         # This is the time of a complete signal for certain concentration and duration
 
     # Testing Artificial Data Loader
     TADL = Artificial_DataLoader(args.world_size, args.local_rank, device, test_f, sampling_rate,
