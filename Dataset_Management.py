@@ -195,7 +195,7 @@ class Artificial_DataLoader:
         Dnp = sample[2]
         window_number = sample[3]
         dset = self.File['Cnp_' + str(Cnp+1) + '/Duration_' + str(Duration+1) + '/Dnp_' + str(Dnp+1) + '/data']
-        assert dset.shape[1] % self.length == 0
+        #assert dset.shape[1] % self.length == 0
         samples_per_second = int(dset.shape[1] / self.length)
         samples_per_window = int(samples_per_second * self.window)
         begin = window_number * samples_per_window
@@ -250,7 +250,7 @@ class Artificial_DataLoader:
 
     def get_signal_window(self, Cnp, Duration, Dnp, window_number):
         dset = self.File['Cnp_' + str(Cnp+1) + '/Duration_' + str(Duration+1) + '/Dnp_' + str(Dnp+1) + '/data']
-        assert dset.shape[1] % self.length == 0
+        #assert dset.shape[1] % self.length == 0
         samples_per_second = int(dset.shape[1] / self.length)
         samples_per_window = int(samples_per_second * self.window)
         begin = window_number * samples_per_window
@@ -315,3 +315,82 @@ class Unlabeled_Real_DataLoader:
 
         return time_window, signal
 
+
+
+
+
+
+class Labeled_Real_DataLoader:
+    def __init__(self, device, File, num_of_traces, window, length):
+        assert window < length
+
+        self.device = device
+
+        self.File = File
+
+        self.num_of_traces = num_of_traces
+        self.windows_per_trace = int(length / window)
+
+        # this is the shape of the structure of windows in the dataset
+        self.shape = (self.num_of_traces, int(length / window))
+
+        # this is the total number of windows in the dataset
+        self.total_number_of_windows = self.num_of_traces * self.windows_per_trace
+
+        self.window = window
+        self.length = length
+
+
+    def _get_labels(self, time_window, trace_number):
+        "Returns classes and bboxes inside the signal window"
+        dset_p = self.File['Volt_' + str(trace_number+1) + '/parameters']
+        pulses_inside_window = np.where((torch.from_numpy(dset_p[0,:]) > time_window[0].cpu()) & \
+                                        (torch.from_numpy(dset_p[0,:]) < time_window[-1].cpu()))[0]
+        pulses_inside_window = pulses_inside_window.tolist()
+        
+        start_times = dset_p[0,pulses_inside_window]
+        #pulse_widths = dset_p[1,pulses_inside_window]
+        #pulse_categories = dset_p[2,pulses_inside_window]
+        pulse_widths = dset_p[2,pulses_inside_window]
+        pulse_amplitudes = dset_p[3,pulses_inside_window]
+        
+        number_of_pulses = len(pulses_inside_window)
+        if number_of_pulses == 0:
+            average_width = 0.0
+            average_amplitude = 0.0
+        else:
+            average_width = np.average(pulse_widths)
+            average_amplitude = np.average(pulse_amplitudes)
+
+        starts = (torch.from_numpy(start_times) - time_window[0].cpu()) / self.window
+        widths = torch.from_numpy(pulse_widths) / self.window
+        amplitudes = torch.from_numpy(pulse_amplitudes)
+        
+        return starts, widths, amplitudes, number_of_pulses, average_width, average_amplitude
+
+
+
+    def get_signal_window(self, trace_number, window_number):
+        dset = self.File['Volt_' + str(trace_number+1) + '/data']
+        #assert dset.shape[1] % self.length == 0
+        samples_per_second = int(dset.shape[1] / self.length)
+        samples_per_window = int(samples_per_second * self.window)
+        begin = window_number * samples_per_window
+        end = begin + samples_per_window
+        time_window = torch.Tensor(dset[0,begin:end]).to(self.device)
+        noisy_signal = torch.Tensor(dset[1,begin:end]).to(self.device)
+
+        starts, widths, amplitudes, number_of_pulses, average_width, average_amplitude = self._get_labels(time_window, trace_number)
+        num_of_pulses_in_the_wind = starts.shape[0]
+        pulse_labels = torch.Tensor(3, num_of_pulses_in_the_wind).to(self.device)
+        average_labels = torch.Tensor(3).to(self.device)
+
+        pulse_labels[0] = starts
+        pulse_labels[1] = widths
+        pulse_labels[2] = amplitudes
+
+        average_labels[0] = number_of_pulses
+        average_labels[1] = average_width
+        average_labels[2] = average_amplitude
+
+        return time_window, noisy_signal, pulse_labels, average_labels
