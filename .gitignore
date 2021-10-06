@@ -10,3 +10,6 @@ __pycache__
 
 # Ignore notebooks
 *.ipynb*
+
+# Ignore Matlab data files
+*.mat
