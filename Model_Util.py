@@ -6,6 +6,8 @@ import math
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
+from scipy.io import savemat
+
 def learning_rate_schedule(args, arguments):
     """Build learning rate schedule."""
     num_examples = arguments['TADL'].shard_size
@@ -246,3 +248,20 @@ def save_stats(stats, path, filename='stats.pth.tar'):
     print('Saving backbone model stats for {}'.format(stats['Arch']))
     torch.save(stats, os.path.join(directory, filename))
 
+
+
+
+
+def save_outputs(outputs, path, filename='outputs.mat'):
+    print(outputs)
+    directory = os.path.join(path)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    directory = os.path.join(path, outputs['Arch'])
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    print('Saving backbone model outputs for {}'.format(outputs['Arch']))
+    savemat(os.path.join(directory, filename), outputs)
+    #torch.save(stats, os.path.join(directory, filename))

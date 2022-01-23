@@ -64,6 +64,8 @@ def parse():
                         metavar='N', help='mini-batch size per process (default: 6)')
     parser.add_argument('-save-stats', default='', type=str, metavar='STATS_PATH',
                         help='path to save the stats produced during evaluation (default: none)')
+    parser.add_argument('-save-outputs', default='', type=str, metavar='OUTPUTS_PATH',
+                        help='path to save the outputs produced by a trained model during inference (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
     parser.add_argument('-stats', '--statistics', dest='statistics', action='store_true',
@@ -486,8 +488,8 @@ def main():
 
 
     # Data loading code
-    testdir = os.path.join(args.data, 'test_i')
-    #testdir = os.path.join(args.data, 'test')
+    #testdir = os.path.join(args.data, 'test_i')
+    testdir = os.path.join(args.data, 'test')
 
     if args.test:
         test_f = h5py.File(testdir + '/test_toy.h5', 'r')
@@ -496,8 +498,8 @@ def main():
 
 
     # this is the dataset for testing
-    sampling_rate = 100000                   # This is the number of samples per second of the signals in the dataset
-    #sampling_rate = 10000                   # This is the number of samples per second of the signals in the dataset
+    #sampling_rate = 100000                   # This is the number of samples per second of the signals in the dataset
+    sampling_rate = 10000                   # This is the number of samples per second of the signals in the dataset
     if args.test:
         number_of_concentrations = 2        # This is the number of different concentrations in the dataset
         number_of_durations = 2             # This is the number of different translocation durations per concentration in the dataset
@@ -506,14 +508,14 @@ def main():
         length = 10                         # This is the time of a complete signal for certain concentration and duration
     else:
         number_of_concentrations = 20       # This is the number of different concentrations in the dataset
-        number_of_durations = 1             # This is the number of different translocation durations per concentration in the dataset
-        #number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
+        #number_of_durations = 1             # This is the number of different translocation durations per concentration in the dataset
+        number_of_durations = 5             # This is the number of different translocation durations per concentration in the dataset
         number_of_diameters = 15            # This is the number of different translocation durations per concentration in the dataset
-        window = 0.049999                        # This is the time window in seconds
-        #window = 0.5                        # This is the time window in seconds
-        length = 4.9999                          # This is the time of a complete signal for certain concentration and duration
+        #window = 0.049999                        # This is the time window in seconds
+        window = 0.5                        # This is the time window in seconds
+        #length = 4.9999                          # This is the time of a complete signal for certain concentration and duration
         #length = 5                          # This is the time of a complete signal for certain concentration and duration
-        #length = 10                         # This is the time of a complete signal for certain concentration and duration
+        length = 10                         # This is the time of a complete signal for certain concentration and duration
 
     # Testing Artificial Data Loader
     TADL = Artificial_DataLoader(args.world_size, args.local_rank, device, test_f, sampling_rate,
@@ -544,6 +546,34 @@ def main():
             run_model(args, arguments)
 
         return
+
+
+
+
+
+    if args.save_outputs:
+        arguments = {'model': detr,
+                     'device': device,
+                     'epoch': 0,
+                     'TADL': TADL}
+
+        [all_predictions, all_ground_truths] = compute_model_outputs(args, arguments)
+        Model_Util.save_outputs({'all_predictions': all_predictions,
+                                 'all_ground_truths': all_ground_truths,
+                                 'Arch': 'DETR_' + args.feature_predictor_arch},
+                                 args.save_outputs)
+        
+        #savemat(args.save_outputs + "all_outputs.mat", all_outputs)
+
+        return
+
+
+
+
+
+
+
+
 
     if args.statistics:
         arguments = {'model': detr,
@@ -713,6 +743,78 @@ def validate(args, arguments):
 
 
 
+
+
+
+
+
+
+
+
+
+
+def compute_model_outputs(args, arguments):
+    # switch to evaluate mode
+    arguments['model'].eval()
+    
+    (Cnps, Durations, Dnps, windows) = arguments['TADL'].shape
+    all_predictions = {}
+    all_ground_truths = {}
+
+    arguments['TADL'].reset_avail_winds(arguments['epoch'])
+    for Cnp in range(Cnps):
+        for Duration in range(Durations):
+            for Dnp in range(Dnps):
+                pred_segments = []
+                true_segments = []
+                for window in range(windows):
+                    # bring a new window
+                    times, noisy_signals, clean_signals, targets, labels = arguments['TADL'].get_signal_window(Cnp, Duration, Dnp, window)
+        
+                    times = times.unsqueeze(0)
+                    noisy_signals = noisy_signals.unsqueeze(0)
+                    clean_signals = clean_signals.unsqueeze(0)
+                    targets = targets.unsqueeze(0)
+                    labels = labels.unsqueeze(0)
+    
+                    mean = torch.mean(noisy_signals, 1, True)
+                    noisy_signals = noisy_signals-mean
+    
+                    with torch.no_grad():
+                        # forward
+                        noisy_signals = noisy_signals.unsqueeze(1)
+                        outputs = arguments['model'](noisy_signals)
+                        noisy_signals = noisy_signals.squeeze(1)
+                        
+                    train_idx = window
+                    
+                    probabilities = F.softmax(outputs['pred_logits'][0], dim=1)
+                    aux_pred_segments = outputs['pred_segments'][0]
+    
+                    for probability, pred_segment in zip(probabilities.to('cpu'), aux_pred_segments.to('cpu')):
+                        #if probability[-1] < 0.9:
+                        if torch.argmax(probability) != args.num_classes:
+                            segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(),\
+                                       pred_segment[0].item(), pred_segment[1].item()]
+                            pred_segments.append(segment)
+                            
+                    num_pulses = labels[0, 0]
+        
+                    starts = targets[0, 0]
+                    widths = targets[0, 1]
+                    categories = targets[0, 3]
+                    
+                    for k in range(int(num_pulses.item())):
+                        segment = [train_idx, categories[k].item(), 1.0, starts[k].item(), widths[k].item()]
+                        true_segments.append(segment)
+                
+                
+                all_predictions['Cnp_' + str(Cnp) + '_Duration_' + str(Duration) + '_Dnp_' + str(Dnp)] = pred_segments
+                all_ground_truths['Cnp_' + str(Cnp) + '_Duration_' + str(Duration) + '_Dnp_' + str(Dnp)] = true_segments
+                
+
+
+    return [all_predictions, all_ground_truths]
 
 
 
