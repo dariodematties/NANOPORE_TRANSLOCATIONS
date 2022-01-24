@@ -253,7 +253,6 @@ def save_stats(stats, path, filename='stats.pth.tar'):
 
 
 def save_outputs(outputs, path, filename='outputs.mat'):
-    print(outputs)
     directory = os.path.join(path)
     if not os.path.exists(directory):
         os.mkdir(directory)

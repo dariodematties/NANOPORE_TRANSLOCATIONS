@@ -553,6 +553,7 @@ def main():
 
     if args.save_outputs:
         arguments = {'model': detr,
+                     'pulse_counter': backbone_pulse_counter,
                      'device': device,
                      'epoch': 0,
                      'TADL': TADL}
@@ -563,7 +564,6 @@ def main():
                                  'Arch': 'DETR_' + args.feature_predictor_arch},
                                  args.save_outputs)
         
-        #savemat(args.save_outputs + "all_outputs.mat", all_outputs)
 
         return
 
@@ -783,28 +783,31 @@ def compute_model_outputs(args, arguments):
                     with torch.no_grad():
                         # forward
                         noisy_signals = noisy_signals.unsqueeze(1)
-                        outputs = arguments['model'](noisy_signals)
+                        pred_num_pulses = int(arguments['pulse_counter'](noisy_signals))
+                        if pred_num_pulses > 0:
+                            outputs = arguments['model'](noisy_signals)
                         noisy_signals = noisy_signals.squeeze(1)
                         
                     train_idx = window
                     
-                    probabilities = F.softmax(outputs['pred_logits'][0], dim=1)
-                    aux_pred_segments = outputs['pred_segments'][0]
-    
-                    for probability, pred_segment in zip(probabilities.to('cpu'), aux_pred_segments.to('cpu')):
-                        #if probability[-1] < 0.9:
-                        if torch.argmax(probability) != args.num_classes:
-                            segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(),\
-                                       pred_segment[0].item(), pred_segment[1].item()]
-                            pred_segments.append(segment)
+                    if pred_num_pulses > 0:
+                        probabilities = F.softmax(outputs['pred_logits'][0], dim=1)
+                        aux_pred_segments = outputs['pred_segments'][0]
+
+                        for probability, pred_segment in zip(probabilities.to('cpu'), aux_pred_segments.to('cpu')):
+                            #if probability[-1] < 0.9:
+                            if torch.argmax(probability) != args.num_classes:
+                                segment = [train_idx, np.argmax(probability[:-1]).item(), 1.0 - probability[-1].item(),\
+                                           pred_segment[0].item(), pred_segment[1].item()]
+                                pred_segments.append(segment)
                             
-                    num_pulses = labels[0, 0]
+                    true_num_pulses = labels[0, 0]
         
                     starts = targets[0, 0]
                     widths = targets[0, 1]
                     categories = targets[0, 3]
                     
-                    for k in range(int(num_pulses.item())):
+                    for k in range(int(true_num_pulses.item())):
                         segment = [train_idx, categories[k].item(), 1.0, starts[k].item(), widths[k].item()]
                         true_segments.append(segment)
                 
