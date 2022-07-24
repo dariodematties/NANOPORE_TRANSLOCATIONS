@@ -547,6 +547,7 @@ def main():
 
     if args.compute_predictions:
         arguments = {'model': detr,
+                     'pulse_counter': backbone_pulse_counter,
                      'device': device,
                      'epoch': 0,
                      'TADL': TADL,
@@ -917,18 +918,22 @@ def compute_predictions(args, arguments):
             with torch.no_grad():
                 # forward
                 noisy_signals = noisy_signals.unsqueeze(1)
-                outputs = arguments['model'](noisy_signals)
+                pred_num_pulses = int(arguments['pulse_counter'](noisy_signals))
+                if pred_num_pulses > 0:
+                    outputs = arguments['model'](noisy_signals)
+                    #outputs = arguments['model'](noisy_signals)
                 noisy_signals = noisy_signals.squeeze(1)
-                
-            # indices to be eliminated from the output (i.e. non-segments)
-            idxs = torch.where(outputs['pred_logits'][0, :, :].argmax(-1) != 1)[0]
-            segments=outputs['pred_segments'][0,idxs,:].detach()
-
-            start_time_marks = (segments[:,0] * arguments['TADL'].window + times[0,0]).cpu().detach().numpy()
-            end_time_marks   = ((segments[:,1] + segments[:,0]) * arguments['TADL'].window + times[0,0]).cpu().detach().numpy()
             
-            starts = np.append(starts, start_time_marks)
-            ends   = np.append(ends, end_time_marks)
+            if pred_num_pulses > 0:
+                # indices to be eliminated from the output (i.e. non-segments)
+                idxs = torch.where(outputs['pred_logits'][0, :, :].argmax(-1) != 1)[0]
+                segments=outputs['pred_segments'][0,idxs,:].detach()
+    
+                start_time_marks = (segments[:,0] * arguments['TADL'].window + times[0,0]).cpu().detach().numpy()
+                end_time_marks   = ((segments[:,1] + segments[:,0]) * arguments['TADL'].window + times[0,0]).cpu().detach().numpy()
+                
+                starts = np.append(starts, start_time_marks)
+                ends   = np.append(ends, end_time_marks)
             
         start_predictions.append(starts)
         end_predictions.append(ends)

@@ -105,10 +105,13 @@ def mean_average_precision_and_errors(
                     ground_truth_wind[:,3:].to(device),
                     segment_format=seg_format,
                 )
+                #best_iou = torch.max(iou)
+                #best_gt_idx = torch.argmax(iou)
                 best_dist = torch.min(dist)
                 best_gt_idx = torch.argmin(dist)
                 
             if best_dist < iou_threshold and num_gts > 0:
+            #if best_iou > iou_threshold and num_gts > 0:
                 # only detect ground truth detection once
                 if amount_bsegments[int(detection[0])][best_gt_idx] == 0:
                     # true positive and add this bounding segment to seen

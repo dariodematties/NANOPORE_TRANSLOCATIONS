@@ -1641,9 +1641,9 @@ def run_model(args, arguments):
             y_points = np.repeat(0.5, len(x_points))
       
             if arguments['TADL'].batch_size > 1:
-                axs[i].plot(x_points, y_points, 'r*')
+                axs[i].plot(x_points, y_points, 'r*', markersize=15)
             else:
-                axs.plot(x_points, y_points, 'r*')
+                axs.plot(x_points, y_points, 'r*', markersize=15)
 
             #x_points = (outputs['pred_segments'][:,batch_element,0] * arguments['TADL'].window + times[batch_element,0]).cpu().detach().numpy()
             #y_points = np.repeat(3.8, len(x_points))
@@ -1664,9 +1664,9 @@ def run_model(args, arguments):
             y_points = np.repeat(0.5, len(x_points))
       
             if arguments['TADL'].batch_size > 1:
-                axs[i].plot(x_points, y_points, 'g*')
+                axs[i].plot(x_points, y_points, 'g*', markersize=15)
             else:
-                axs.plot(x_points, y_points, 'g*')
+                axs.plot(x_points, y_points, 'g*', markersize=15)
 
 
             #x_points = ((outputs['pred_segments'][:,batch_element,1] + outputs['pred_segments'][:,batch_element,0]) * DL.window + times[batch_element,0]).cpu().detach().numpy()
@@ -1693,10 +1693,10 @@ def run_model(args, arguments):
             x_points = np.delete(x_points, to_delete)
             y_points = np.repeat(0.25, len(x_points))
       
-            if arguments['TADL'].batch_size > 1:
-                axs[i].plot(x_points, y_points, 'ro')
-            else:
-                axs.plot(x_points, y_points, 'ro')
+            #if arguments['TADL'].batch_size > 1:
+            #    axs[i].plot(x_points, y_points, 'ro')
+            #else:
+            #    axs.plot(x_points, y_points, 'ro')
 
             x_points = ((segments[0,:] + segments[1,:]) * arguments['TADL'].window + times[batch_element,0]).cpu().detach().numpy()
             #x_points = (segments[:,batch_element,1] * arguments['TADL'].window + times1[batch_element,0]).cpu().detach().numpy()
@@ -1708,10 +1708,10 @@ def run_model(args, arguments):
             x_points = np.delete(x_points, to_delete)
             y_points = np.repeat(0.25, len(x_points))
       
-            if arguments['TADL'].batch_size > 1:
-                axs[i].plot(x_points, y_points, 'go')
-            else:
-                axs.plot(x_points, y_points, 'go')
+            #if arguments['TADL'].batch_size > 1:
+            #    axs[i].plot(x_points, y_points, 'go')
+            #else:
+            #    axs.plot(x_points, y_points, 'go')
 
 
 
