@@ -842,7 +842,7 @@ def validate(args, arguments):
     true_segments = []
     while i * arguments['VADL'].batch_size < arguments['VADL'].shard_size:
         # get the noisy inputs and the labels
-        _, inputs, _, targets, labels = arguments['TADL'].get_batch()
+        _, inputs, _, targets, labels = arguments['VADL'].get_batch()
 
         mean = torch.mean(inputs, 1, True)
         inputs = inputs-mean

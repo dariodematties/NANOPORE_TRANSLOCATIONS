@@ -65,7 +65,7 @@ class DETR(nn.Module):
                                     # and it is 2048 if feature_predictor is resnet50 or resnet101 or resnet152
 
         # Addapt the backbone output so it satisfies the required format
-        x = x[:,0:-1]
+        # x = x[:,0:-1]
         x = x.view(inputs.shape[0], self.backbone.num_channels, -1)    # x [batch_size, procesed_window_size, channel_dim]
 
         # convert from backbone number of channels to hidden_dim feature vectors for the transformer
