@@ -121,7 +121,7 @@ run
 
 This is only for plotting the training history of the model (Loss and validation errors) --plot-training_history
 
-`main.py --cpu --num-queries 75 -pth -v --resume DETR_ResNet18/checkpoint.pth.tar ../../Datasets/SNR_4/ ../Translocations_Counter/ResNet18/SNR_4/model_best.pth.tar ../Feature_Prediction/ResNet18/SNR_4/model_best.pth.tar`
+`main.py --cpu --num-queries 75 -pth -v --resume ../Translocation_Detector/DETR_ResNet18/SNR_4/checkpoint.pth.tar ../../Datasets/SNR_4/ ../Translocations_Counter/ResNet18/SNR_4/model_best.pth.tar ../Feature_Prediction/ResNet18/SNR_4/model_best.pth.tar`
 
 This is only for plotting some detection examples of the trained model
 
